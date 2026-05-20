@@ -47,7 +47,7 @@ export default function LoginPage() {
           Welcome back
         </h1>
         <p className="text-center text-[13px] text-muted-foreground mt-1">
-          เข้าสู่ระบบเพื่อจัดการ AI Agent ของคุณ
+          Sign in to manage your AI Agents
         </p>
 
         <Card className="mt-7">
