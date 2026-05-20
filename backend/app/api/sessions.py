@@ -23,8 +23,11 @@ class MessageOut(BaseModel):
     id: int
     role: str
     content: str
+    attachments: str = "[]"
     tool_calls: str | None = None
     tool_call_id: str | None = None
+    tokens_in: int = 0
+    tokens_out: int = 0
     citations: list[CitationOut] = []
     created_at: datetime
 

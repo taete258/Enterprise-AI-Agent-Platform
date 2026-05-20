@@ -59,11 +59,31 @@ export const agents = {
   get: (id: number) => api(`/api/agents/${id}`),
   create: (data: any) => api("/api/agents", { method: "POST", body: JSON.stringify(data) }),
   update: (id: number, data: any) => api(`/api/agents/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
-  chat: (data: { session_id?: number; agent_id: number; message: string }) =>
-    api<{ session_id: number; reply: string; citations: any[]; tokens_in: number; tokens_out: number }>(
-      "/api/agents/chat",
-      { method: "POST", body: JSON.stringify(data) }
-    ),
+  chat: async (data: { session_id?: number; agent_id: number; message: string; files?: File[] }) => {
+    const fd = new FormData();
+    fd.append("agent_id", String(data.agent_id));
+    fd.append("message", data.message);
+    if (data.session_id != null) fd.append("session_id", String(data.session_id));
+    for (const f of data.files || []) fd.append("files", f);
+    const t = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    const res = await fetch(`${API_URL}/api/agents/chat`, {
+      method: "POST",
+      headers: t ? { Authorization: `Bearer ${t}` } : {},
+      body: fd,
+    });
+    if (!res.ok) {
+      if (res.status === 401 && typeof window !== "undefined") {
+        localStorage.removeItem("token");
+        window.location.href = `/unauthorized?from=${encodeURIComponent(window.location.pathname)}`;
+      }
+      throw new Error(`${res.status}: ${await res.text()}`);
+    }
+    return res.json() as Promise<{
+      session_id: number; reply: string; citations: any[]; tokens_in: number; tokens_out: number;
+    }>;
+  },
+  attachmentUrl: (messageId: number, filename: string) =>
+    `${API_URL}/api/agents/chat/attachments/${messageId}/${encodeURIComponent(filename)}`,
   listTools: (agentId: number) => api<any[]>(`/api/agents/${agentId}/tools`),
   updateTools: (agentId: number, data: any[]) =>
     api(`/api/agents/${agentId}/tools`, { method: "PUT", body: JSON.stringify(data) }),

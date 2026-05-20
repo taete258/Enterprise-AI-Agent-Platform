@@ -30,6 +30,8 @@ def _to_history(session: ChatSession) -> list[ChatMessage]:
 def run_chat(
     db: Session, *, user_id: int, agent: Agent, session: ChatSession, user_text: str,
     apply_pii_mask: bool = True,
+    attachments: list[dict] | None = None,
+    original_message: str | None = None,
 ) -> tuple[Message, list]:
     model = db.get(LLMModel, agent.model_id)
     if not model or not model.is_active:
@@ -40,7 +42,13 @@ def run_chat(
 
     masked_text, pii_hits = (mask_pii(user_text) if apply_pii_mask else (user_text, []))
 
-    user_msg = Message(session_id=session.id, role="user", content=user_text)
+    persisted_content = original_message if original_message is not None else user_text
+    user_msg = Message(
+        session_id=session.id,
+        role="user",
+        content=persisted_content,
+        attachments=json.dumps(attachments or []),
+    )
     db.add(user_msg)
     db.flush()
 

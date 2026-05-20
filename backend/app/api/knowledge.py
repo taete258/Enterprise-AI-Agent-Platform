@@ -8,6 +8,7 @@ from ..db.session import get_db
 from ..models import Document, DocumentVersion, DocumentChunk, AgentKnowledge, Agent, User
 from ..schemas.knowledge import DocumentOut, DocumentVersionOut, BindKnowledge
 from ..services.extractor import extract_text, chunk_text
+from ..services.filetype import classify
 from ..services.embeddings import embed_texts
 from ..services.audit import log_action
 from .deps import get_current_user
@@ -85,7 +86,7 @@ async def upload(
     log_action(
         db, user_id=user.id, action="knowledge.upload",
         resource_type="document", resource_id=str(doc.id),
-        detail={"chunks": len(chunks), "bytes": len(data)},
+        detail={"chunks": len(chunks), "bytes": len(data), "doc_type": classify(file.filename or "")},
     )
     db.commit(); db.refresh(doc)
     return doc

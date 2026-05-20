@@ -8,7 +8,33 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertCircle, Upload, FileText, Link2, X } from "lucide-react";
+import { AlertCircle, Upload, FileText, Link2, X, Table, FileType } from "lucide-react";
+
+const STRUCTURED_EXTS = [".csv", ".tsv", ".xlsx", ".xls", ".json", ".jsonl", ".parquet"];
+const UNSTRUCTURED_EXTS = [".pdf", ".txt", ".md", ".markdown", ".docx", ".doc", ".log", ".html", ".htm"];
+const ACCEPT_EXTS = [...STRUCTURED_EXTS, ...UNSTRUCTURED_EXTS].join(",");
+
+function classifyFile(name: string): "structured" | "unstructured" | "unknown" {
+  const lower = (name || "").toLowerCase();
+  const ext = lower.slice(lower.lastIndexOf("."));
+  if (STRUCTURED_EXTS.includes(ext)) return "structured";
+  if (UNSTRUCTURED_EXTS.includes(ext)) return "unstructured";
+  return "unknown";
+}
+
+function TypeBadge({ kind }: { kind: "structured" | "unstructured" | "unknown" }) {
+  const map = {
+    structured: { label: "Structured", cls: "bg-emerald-100 text-emerald-700 border-emerald-200", Icon: Table },
+    unstructured: { label: "Unstructured", cls: "bg-sky-100 text-sky-700 border-sky-200", Icon: FileType },
+    unknown: { label: "Unknown", cls: "bg-muted text-muted-foreground border-border", Icon: FileText },
+  } as const;
+  const { label, cls, Icon } = map[kind];
+  return (
+    <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] font-medium ${cls}`}>
+      <Icon className="size-3" /> {label}
+    </span>
+  );
+}
 import { useTranslations } from "next-intl";
 
 export default function KnowledgePage() {
@@ -69,13 +95,16 @@ export default function KnowledgePage() {
                 onDrop={onDrop}
                 className={`block rounded-md border-2 border-dashed transition-colors cursor-pointer text-center py-10
                             ${drag ? "border-primary bg-accent" : "border-border bg-muted/40 hover:border-primary/40 hover:bg-accent/40"}`}>
-                <input ref={inputRef} type="file" accept=".pdf,.txt,.md,.docx,.csv" className="hidden"
+                <input ref={inputRef} type="file" accept={ACCEPT_EXTS} className="hidden"
                        onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
                 <Upload className="size-7 mx-auto text-muted-foreground mb-2" />
-                <div className="text-[13px] font-medium text-foreground">
-                  {file ? file.name : t("dragPlaceholder")}
+                <div className="text-[13px] font-medium text-foreground flex items-center justify-center gap-2">
+                  <span>{file ? file.name : t("dragPlaceholder")}</span>
+                  {file && <TypeBadge kind={classifyFile(file.name)} />}
                 </div>
-                <div className="text-[10.5px] text-muted-foreground mt-1">{t("fileSupport")}</div>
+                <div className="text-[10.5px] text-muted-foreground mt-1">
+                  Structured: CSV, TSV, XLSX, JSON · Unstructured: PDF, DOCX, TXT, MD
+                </div>
               </label>
 
               <div className="grid sm:grid-cols-[1fr_auto] gap-3 items-end">
@@ -115,7 +144,10 @@ export default function KnowledgePage() {
                   <FileText className="size-5" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="font-medium truncate">{d.name}</div>
+                  <div className="font-medium truncate flex items-center gap-2">
+                    <span className="truncate">{d.name}</span>
+                    <TypeBadge kind={(d.doc_type as any) || classifyFile(d.name)} />
+                  </div>
                   <div className="text-[10.5px] text-muted-foreground font-mono truncate">
                     {d.description || t("noDescription")} · hash {d.content_hash.slice(0, 10)}…
                   </div>

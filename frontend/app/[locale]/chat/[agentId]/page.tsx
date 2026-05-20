@@ -10,10 +10,12 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Send, Settings, BookOpen, ChevronRight } from "lucide-react";
+import { Send, Settings, BookOpen, ChevronRight, Paperclip, X, FileText } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
+type Attachment = { name: string; size?: number; mime?: string };
 type Msg = {
+  id?: number;
   role: "user" | "assistant" | "tool";
   content: string;
   citations?: any[];
@@ -21,7 +23,24 @@ type Msg = {
   tokens_out?: number;
   tool_calls?: any;
   tool_call_id?: string;
+  attachments?: Attachment[];
 };
+
+function parseAttachments(raw: any): Attachment[] {
+  if (!raw) return [];
+  try {
+    const arr = typeof raw === "string" ? JSON.parse(raw) : raw;
+    if (!Array.isArray(arr)) return [];
+    return arr.map((a: any) => ({ name: a.name, size: a.size, mime: a.mime }));
+  } catch { return []; }
+}
+
+function formatBytes(n?: number) {
+  if (!n && n !== 0) return "";
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / 1024 / 1024).toFixed(1)} MB`;
+}
 
 export default function ChatPage() {
   const { agentId } = useParams<{ agentId: string }>();
@@ -34,6 +53,7 @@ export default function ChatPage() {
   const [agent, setAgent] = useState<any>(null);
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
   const [sessionId, setSessionId] = useState<number | undefined>(undefined);
   const [sessionsList, setSessionsList] = useState<any[]>([]);
@@ -47,6 +67,7 @@ export default function ChatPage() {
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { agents.get(id).then(setAgent).catch(() => {}); }, [id]);
   useEffect(() => { llm.models().then(setModels).catch(() => {}); }, []);
@@ -114,9 +135,11 @@ export default function ChatPage() {
       sessions.messages(sId)
         .then((data) => {
           setMsgs(data.map((m: any) => ({
+            id: m.id,
             role: m.role, content: m.content, citations: m.citations,
             tokens_in: m.tokens_in, tokens_out: m.tokens_out,
-            tool_calls: m.tool_calls, tool_call_id: m.tool_call_id
+            tool_calls: m.tool_calls, tool_call_id: m.tool_call_id,
+            attachments: parseAttachments(m.attachments),
           })));
         }).catch(() => {});
     } else {
@@ -145,18 +168,24 @@ export default function ChatPage() {
 
   async function send() {
     const text = input.trim();
-    if (!text || busy) return;
+    const files = pendingFiles;
+    if ((!text && files.length === 0) || busy) return;
     setInput(""); autosize();
-    setMsgs((m) => [...m, { role: "user", content: text }]);
+    const optimisticAttachments: Attachment[] = files.map((f) => ({ name: f.name, size: f.size, mime: f.type }));
+    setMsgs((m) => [...m, { role: "user", content: text, attachments: optimisticAttachments }]);
+    setPendingFiles([]);
+    if (fileInputRef.current) fileInputRef.current.value = "";
     setBusy(true);
     try {
-      const r = await agents.chat({ session_id: sessionId, agent_id: id, message: text });
+      const r = await agents.chat({ session_id: sessionId, agent_id: id, message: text, files });
       setSessionId(r.session_id);
       const freshData = await sessions.messages(r.session_id);
       setMsgs(freshData.map((m: any) => ({
+        id: m.id,
         role: m.role, content: m.content, citations: m.citations,
         tokens_in: m.tokens_in, tokens_out: m.tokens_out,
-        tool_calls: m.tool_calls, tool_call_id: m.tool_call_id
+        tool_calls: m.tool_calls, tool_call_id: m.tool_call_id,
+        attachments: parseAttachments(m.attachments),
       })));
       if (!sessionId) {
         router.replace(`/chat/${id}?session_id=${r.session_id}` as any);
@@ -281,19 +310,60 @@ export default function ChatPage() {
 
             <div className="border-t border-border bg-sidebar/60 backdrop-blur shrink-0">
               <div className="max-w-3xl mx-auto px-6 py-3.5">
-                <Card className="p-1.5 flex items-end gap-1">
-                  <textarea
-                    ref={taRef}
-                    rows={1}
-                    className="flex-1 resize-none bg-transparent outline-none px-3 py-2 text-[14px] placeholder:text-muted-foreground max-h-[220px]"
-                    placeholder={t("inputPlaceholder")}
-                    value={input}
-                    onChange={(e) => { setInput(e.target.value); autosize(); }}
-                    onKeyDown={onKey}
-                  />
-                  <Button onClick={send} disabled={busy || !input.trim()} size="icon">
-                    <Send className="size-4" />
-                  </Button>
+                <Card className="p-1.5 flex flex-col gap-1.5">
+                  {pendingFiles.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 px-2 pt-1">
+                      {pendingFiles.map((f, i) => (
+                        <div key={i} className="flex items-center gap-1.5 text-[11.5px] bg-muted border border-border rounded-md pl-2 pr-1 py-1 max-w-[220px]">
+                          <FileText className="size-3 text-muted-foreground shrink-0" />
+                          <span className="truncate" title={f.name}>{f.name}</span>
+                          <span className="text-[10px] text-muted-foreground font-mono shrink-0">{formatBytes(f.size)}</span>
+                          <button
+                            type="button"
+                            className="ml-0.5 p-0.5 rounded hover:bg-accent shrink-0"
+                            onClick={() => setPendingFiles((prev) => prev.filter((_, idx) => idx !== i))}
+                            aria-label={t("removeAttachment")}
+                          >
+                            <X className="size-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div className="flex items-end gap-1">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      multiple
+                      className="hidden"
+                      onChange={(e) => {
+                        const fl = Array.from(e.target.files || []);
+                        if (fl.length) setPendingFiles((prev) => [...prev, ...fl]);
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={busy}
+                      aria-label={t("attachFile")}
+                    >
+                      <Paperclip className="size-4" />
+                    </Button>
+                    <textarea
+                      ref={taRef}
+                      rows={1}
+                      className="flex-1 resize-none bg-transparent outline-none px-3 py-2 text-[14px] placeholder:text-muted-foreground max-h-[220px]"
+                      placeholder={t("inputPlaceholder")}
+                      value={input}
+                      onChange={(e) => { setInput(e.target.value); autosize(); }}
+                      onKeyDown={onKey}
+                    />
+                    <Button onClick={send} disabled={busy || (!input.trim() && pendingFiles.length === 0)} size="icon">
+                      <Send className="size-4" />
+                    </Button>
+                  </div>
                 </Card>
                 <div className="flex items-center justify-between mt-2 text-[10.5px] text-muted-foreground px-1">
                   <div className="flex items-center gap-2">
@@ -380,6 +450,25 @@ function Bubble({ msg }: { msg: Msg }) {
         {isUser ? "U" : "A"}
       </div>
       <div className="flex-1 min-w-0 space-y-2">
+        {msg.attachments && msg.attachments.length > 0 && (
+          <div className={`flex flex-wrap gap-1.5 max-w-[85%] ${isUser ? "ml-auto justify-end" : "mr-auto"}`}>
+            {msg.attachments.map((a, idx) => {
+              const href = msg.id ? `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/agents/chat/attachments/${msg.id}/${encodeURIComponent(a.name)}` : undefined;
+              const Inner = (
+                <span className="flex items-center gap-1.5 text-[12px] bg-muted/70 border border-border/80 rounded-md px-2 py-1 max-w-[220px]">
+                  <FileText className="size-3 text-muted-foreground shrink-0" />
+                  <span className="truncate" title={a.name}>{a.name}</span>
+                  {a.size != null && <span className="text-[10px] text-muted-foreground font-mono shrink-0">{formatBytes(a.size)}</span>}
+                </span>
+              );
+              return href ? (
+                <a key={idx} href={href} target="_blank" rel="noreferrer" className="hover:opacity-80">{Inner}</a>
+              ) : (
+                <span key={idx}>{Inner}</span>
+              );
+            })}
+          </div>
+        )}
         {msg.content && (
           <div className={`text-[14px] leading-relaxed whitespace-pre-wrap px-4 py-2.5 shadow-sm max-w-[85%] w-fit
             ${isUser

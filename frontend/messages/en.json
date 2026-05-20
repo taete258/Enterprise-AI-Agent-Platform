@@ -102,7 +102,9 @@
     "tokensOut": "Tokens out",
     "enabledSkills": "Enabled Skills",
     "noTools": "No tools registered.",
-    "noDescription": "No description"
+    "noDescription": "No description",
+    "attachFile": "Attach file",
+    "removeAttachment": "Remove attachment"
   },
   "DashboardPage": {
     "title": "Usage",

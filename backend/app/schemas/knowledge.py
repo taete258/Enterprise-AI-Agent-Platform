@@ -1,5 +1,7 @@
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, computed_field
+
+from ..services.filetype import classify
 
 
 class DocumentOut(BaseModel):
@@ -10,6 +12,11 @@ class DocumentOut(BaseModel):
     uploader_id: int
     is_active: bool
     created_at: datetime
+
+    @computed_field
+    @property
+    def doc_type(self) -> str:
+        return classify(self.name)
 
     class Config:
         from_attributes = True

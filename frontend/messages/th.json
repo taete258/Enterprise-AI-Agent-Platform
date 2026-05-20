@@ -102,7 +102,9 @@
     "tokensOut": "Tokens out",
     "enabledSkills": "Enabled Skills",
     "noTools": "No tools registered.",
-    "noDescription": "ไม่มีคำอธิบาย"
+    "noDescription": "ไม่มีคำอธิบาย",
+    "attachFile": "แนบไฟล์",
+    "removeAttachment": "ลบไฟล์แนบ"
   },
   "DashboardPage": {
     "title": "Usage",

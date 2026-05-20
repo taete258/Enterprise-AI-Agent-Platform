@@ -1,11 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+import json
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import select, delete
 from ..db.session import get_db
-from ..models import Agent, ChatSession, User, AgentTool, Tool
-from ..schemas.agent import AgentCreate, AgentUpdate, AgentOut, ChatRequest, ChatResponse, CitationOut
+from ..models import Agent, ChatSession, Message, User, AgentTool, Tool
+from ..schemas.agent import AgentCreate, AgentUpdate, AgentOut, ChatResponse, CitationOut
 from ..schemas.tool import AgentToolOut, AgentToolUpdate
 from ..services.chat import run_chat
+from ..services.attachments import save_chat_attachments, ATTACHMENT_ROOT
 from ..services.audit import log_action
 from ..services.acl import user_has_permission
 from .deps import get_current_user
@@ -77,24 +80,39 @@ def delete_agent(agent_id: int, db: Session = Depends(get_db), user: User = Depe
 
 
 @router.post("/chat", response_model=ChatResponse)
-def chat(
-    payload: ChatRequest, request: Request,
-    db: Session = Depends(get_db), user: User = Depends(get_current_user),
+async def chat(
+    request: Request,
+    agent_id: int = Form(...),
+    message: str = Form(""),
+    session_id: int | None = Form(None),
+    files: list[UploadFile] = File(default=[]),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
-    agent = db.get(Agent, payload.agent_id)
+    agent = db.get(Agent, agent_id)
     if not agent or not _visible(db, user, agent, "use"):
         raise HTTPException(404, "Agent not found or not accessible")
 
-    if payload.session_id:
-        session = db.get(ChatSession, payload.session_id)
+    if session_id:
+        session = db.get(ChatSession, session_id)
         if not session or session.user_id != user.id:
             raise HTTPException(404, "Session not found")
     else:
-        session = ChatSession(user_id=user.id, agent_id=agent.id, title=payload.message[:60] or "New chat")
+        session = ChatSession(user_id=user.id, agent_id=agent.id, title=(message[:60] or "New chat"))
         db.add(session); db.flush()
 
+    attachments_meta, attachment_text = await save_chat_attachments(files or [])
+
+    user_text = message
+    if attachment_text:
+        user_text = (message + "\n\n" if message else "") + attachment_text
+
     try:
-        assistant, citations = run_chat(db, user_id=user.id, agent=agent, session=session, user_text=payload.message)
+        assistant, citations = run_chat(
+            db, user_id=user.id, agent=agent, session=session,
+            user_text=user_text, attachments=attachments_meta,
+            original_message=message,
+        )
     except Exception as e:
         db.rollback()
         raise HTTPException(502, f"LLM error: {e}")
@@ -114,6 +132,30 @@ def chat(
         tokens_in=assistant.tokens_in,
         tokens_out=assistant.tokens_out,
     )
+
+
+@router.get("/chat/attachments/{message_id}/{filename}")
+def download_chat_attachment(
+    message_id: int, filename: str,
+    db: Session = Depends(get_db), user: User = Depends(get_current_user),
+):
+    msg = db.get(Message, message_id)
+    if not msg:
+        raise HTTPException(404)
+    session = db.get(ChatSession, msg.session_id)
+    if not session or session.user_id != user.id:
+        raise HTTPException(404)
+    try:
+        items = json.loads(msg.attachments or "[]")
+    except Exception:
+        items = []
+    match = next((a for a in items if a.get("name") == filename), None)
+    if not match:
+        raise HTTPException(404)
+    path = match.get("path", "")
+    if not path or not path.startswith(str(ATTACHMENT_ROOT)):
+        raise HTTPException(404)
+    return FileResponse(path, filename=filename, media_type=match.get("mime") or "application/octet-stream")
 
 
 @router.get("/{agent_id}/tools", response_model=list[AgentToolOut])
