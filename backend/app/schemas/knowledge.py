@@ -38,3 +38,30 @@ class DocumentVersionOut(BaseModel):
 class BindKnowledge(BaseModel):
     agent_id: int
     document_id: int
+
+
+class GraphNodeOut(BaseModel):
+    id: int
+    label: str
+    type: str
+    description: str
+
+    class Config:
+        from_attributes = True
+
+
+class GraphEdgeOut(BaseModel):
+    id: int
+    source: int
+    target: int
+    type: str
+    description: str
+
+    class Config:
+        from_attributes = True
+
+
+class GraphDataOut(BaseModel):
+    nodes: list[GraphNodeOut]
+    edges: list[GraphEdgeOut]
+

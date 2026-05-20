@@ -43,7 +43,21 @@
     "published": "published",
     "private": "private",
     "noDescription": "No description",
-    "open": "Open"
+    "open": "Open",
+    "manage": "Manage"
+  },
+  "AgentManagePage": {
+    "subtitle": "Manage knowledge for this agent",
+    "openChat": "Open Chat",
+    "noDescription": "No description",
+    "knowledgeTitle": "Knowledge",
+    "knowledgeDesc": "Select documents this agent can use for RAG retrieval. Changes take effect after saving.",
+    "saveChanges": "Save",
+    "saving": "Saving…",
+    "saved": "Saved",
+    "noDocs": "No documents uploaded yet.",
+    "uploadLink": "Upload documents →",
+    "noDocDescription": "No description"
   },
   "NewAgentPage": {
     "title": "Create a new agent",
@@ -121,6 +135,8 @@
   "KnowledgePage": {
     "title": "Knowledge",
     "subtitle": "Upload documents to use as Agent's knowledge base (RAG)",
+    "documentsTab": "Knowledge Documents",
+    "graphTab": "Knowledge Graph",
     "dragPlaceholder": "Drag file here or click to select",
     "fileSupport": "Supports PDF, DOCX, TXT, MD, CSV",
     "descLabel": "Description (optional)",
@@ -135,7 +151,11 @@
     "unbindConfirm": "Unbind this document?",
     "bindSuccess": "Document bound to Agent successfully",
     "noDescription": "No description",
-    "noDocs": "No documents yet"
+    "noDocs": "No documents yet",
+    "deleteConfirmTitle": "Delete Document",
+    "deleteConfirmDescription": "Are you sure you want to delete this document? This action cannot be undone.",
+    "delete": "Delete",
+    "cancel": "Cancel"
   },
   "ModelsPage": {
     "title": "Models",

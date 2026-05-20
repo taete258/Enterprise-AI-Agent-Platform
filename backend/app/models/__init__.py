@@ -6,6 +6,7 @@ from .knowledge import Document, DocumentVersion, DocumentChunk
 from .audit import AuditLog, UsageRecord
 from .acl import ResourceACL
 from .tool import Tool
+from .graph import GraphEntity, GraphRelationship, ChunkEntityAssociation
 
 __all__ = [
     "User", "Role", "UserRole", "Group", "UserGroup",
@@ -16,4 +17,6 @@ __all__ = [
     "AuditLog", "UsageRecord",
     "ResourceACL",
     "Tool",
+    "GraphEntity", "GraphRelationship", "ChunkEntityAssociation",
 ]
+

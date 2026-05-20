@@ -65,26 +65,32 @@ export default function AgentsPage() {
 function AgentCard({ agent }: { agent: any }) {
   const t = useTranslations("AgentsPage");
   return (
-    <Link href={`/chat/${agent.id}` as any}>
-      <Card className="p-5 hover:border-primary/40 hover:shadow-md transition-all group h-full">
-        <div className="flex items-start justify-between mb-3.5">
-          <div className="w-9 h-9 rounded-md bg-accent text-accent-foreground grid place-items-center font-serif text-[15px]">
-            {agent.name[0]?.toUpperCase()}
-          </div>
-          <Badge variant={agent.is_published ? "success" : "muted"}>
-            {agent.is_published ? t("published") : t("private")}
-          </Badge>
+    <Card className="p-5 hover:border-primary/40 hover:shadow-md transition-all h-full flex flex-col">
+      <div className="flex items-start justify-between mb-3.5">
+        <div className="w-9 h-9 rounded-md bg-accent text-accent-foreground grid place-items-center font-serif text-[15px]">
+          {agent.name[0]?.toUpperCase()}
         </div>
-        <h2 className="font-serif text-[17px] text-foreground tracking-tight">{agent.name}</h2>
-        <p className="text-[13px] text-muted-foreground mt-1 line-clamp-2 min-h-[2.4rem]">
-          {agent.description || t("noDescription")}
-        </p>
-        <div className="mt-4 pt-3 border-t border-border flex items-center justify-between">
-          <span className="text-[10.5px] text-muted-foreground/80 font-mono">temp {agent.temperature.toFixed(2)} · max {agent.max_tokens}</span>
-          <span className="text-[12px] font-medium text-primary group-hover:underline">{t("open")} →</span>
+        <Badge variant={agent.is_published ? "success" : "muted"}>
+          {agent.is_published ? t("published") : t("private")}
+        </Badge>
+      </div>
+      <h2 className="font-serif text-[17px] text-foreground tracking-tight">{agent.name}</h2>
+      <p className="text-[13px] text-muted-foreground mt-1 line-clamp-2 min-h-[2.4rem]">
+        {agent.description || t("noDescription")}
+      </p>
+      <div className="mt-4 pt-3 border-t border-border flex items-center justify-between">
+        <span className="text-[10.5px] text-muted-foreground/80 font-mono">temp {agent.temperature.toFixed(2)} · max {agent.max_tokens}</span>
+        <div className="flex items-center gap-2">
+          <Link href={`/agents/${agent.id}` as any} className="text-[12px] text-muted-foreground hover:text-foreground transition-colors">
+            {t("manage")}
+          </Link>
+          <span className="text-muted-foreground/40">·</span>
+          <Link href={`/chat/${agent.id}` as any} className="text-[12px] font-medium text-primary hover:underline">
+            {t("open")} →
+          </Link>
         </div>
-      </Card>
-    </Link>
+      </div>
+    </Card>
   );
 }
 

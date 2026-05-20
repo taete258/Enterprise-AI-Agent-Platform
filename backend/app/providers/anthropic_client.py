@@ -40,7 +40,22 @@ class AnthropicClient:
             if m.role == "system":
                 continue
             if m.role == "user":
-                convo.append({"role": "user", "content": m.content})
+                if m.images:
+                    blocks: list = []
+                    for img in m.images:
+                        mime = img.get("mime") or "image/png"
+                        b64 = img.get("b64") or ""
+                        if not b64:
+                            continue
+                        blocks.append({
+                            "type": "image",
+                            "source": {"type": "base64", "media_type": mime, "data": b64},
+                        })
+                    if m.content:
+                        blocks.append({"type": "text", "text": m.content})
+                    convo.append({"role": "user", "content": blocks or m.content})
+                else:
+                    convo.append({"role": "user", "content": m.content})
             elif m.role == "assistant":
                 content_blocks = []
                 if m.content:

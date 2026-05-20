@@ -13,7 +13,13 @@ import { Separator } from "@/components/ui/separator";
 import { Send, Settings, BookOpen, ChevronRight, Paperclip, X, FileText } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-type Attachment = { name: string; size?: number; mime?: string };
+type Attachment = { name: string; size?: number; mime?: string; localUrl?: string };
+
+function isImageAttachment(a: Attachment): boolean {
+  if (a.mime && a.mime.startsWith("image/")) return true;
+  const ext = (a.name || "").toLowerCase().split(".").pop() || "";
+  return ["png", "jpg", "jpeg", "gif", "webp"].includes(ext);
+}
 type Msg = {
   id?: number;
   role: "user" | "assistant" | "tool";
@@ -40,6 +46,41 @@ function formatBytes(n?: number) {
   if (n < 1024) return `${n} B`;
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
   return `${(n / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function formatSessionTime(date: string | Date): string {
+  const d = typeof date === "string" ? new Date(date) : date;
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const sessionDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
+  const timeStr = d.toLocaleString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+
+  if (sessionDate.getTime() === today.getTime()) {
+    return `Today at ${timeStr}`;
+  } else if (sessionDate.getTime() === yesterday.getTime()) {
+    return `Yesterday at ${timeStr}`;
+  } else {
+    return d.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", hour12: true });
+  }
+}
+
+function tryExtractImageUrl(content: string): string | null {
+  if (!content) return null;
+  try {
+    const data = JSON.parse(content);
+    if (typeof data === "object" && data !== null) {
+      const url = data.image_url || data.image || data.url || data.src;
+      if (typeof url === "string" && (url.startsWith("http") || url.startsWith("data:"))) {
+        return url;
+      }
+    }
+  } catch {}
+  const match = content.match(/(https?:\/\/[^\s"<>]+\.(?:png|jpg|jpeg|gif|webp))/i);
+  if (match) return match[1];
+  return null;
 }
 
 export default function ChatPage() {
@@ -171,7 +212,10 @@ export default function ChatPage() {
     const files = pendingFiles;
     if ((!text && files.length === 0) || busy) return;
     setInput(""); autosize();
-    const optimisticAttachments: Attachment[] = files.map((f) => ({ name: f.name, size: f.size, mime: f.type }));
+    const optimisticAttachments: Attachment[] = files.map((f) => ({
+      name: f.name, size: f.size, mime: f.type,
+      localUrl: URL.createObjectURL(f),
+    }));
     setMsgs((m) => [...m, { role: "user", content: text, attachments: optimisticAttachments }]);
     setPendingFiles([]);
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -253,7 +297,7 @@ export default function ChatPage() {
                   >
                     <span className="text-[12.5px] truncate block text-foreground font-medium">{s.title}</span>
                     <span className="text-[9.5px] text-muted-foreground block truncate">
-                      {ags[s.agent_id]?.name || "Agent"} · #{s.id}
+                      {ags[s.agent_id]?.name || "Agent"} · {formatSessionTime(s.created_at)}
                     </span>
                   </button>
                 );
@@ -419,18 +463,24 @@ function Bubble({ msg }: { msg: Msg }) {
   const isTool = msg.role === "tool";
 
   if (isTool) {
+    const imageUrl = tryExtractImageUrl(msg.content);
     return (
       <div className="flex gap-4 items-center pl-11 py-1">
         <div className="w-5 h-5 rounded bg-muted border border-border flex items-center justify-center text-[10px] text-muted-foreground shrink-0 font-mono">
           T
         </div>
-        <details className="flex-1 min-w-0 group">
+        <details className="flex-1 min-w-0 group" open={!!imageUrl}>
           <summary className="text-[11.5px] font-medium text-muted-foreground cursor-pointer hover:underline select-none">
             {t("toolOutput")} (ID: {msg.tool_call_id?.slice(0, 8) || "call"})
           </summary>
-          <pre className="mt-1.5 p-3 rounded-md bg-muted border border-border text-[11px] font-mono text-muted-foreground overflow-auto max-h-40 whitespace-pre-wrap">
-            {msg.content}
-          </pre>
+          <div className="mt-1.5 space-y-2">
+            {imageUrl && (
+              <img src={imageUrl} alt="Tool output" className="rounded-md border border-border max-w-[320px] max-h-[320px]" />
+            )}
+            <pre className="p-3 rounded-md bg-muted border border-border text-[11px] font-mono text-muted-foreground overflow-auto max-h-40 whitespace-pre-wrap">
+              {msg.content}
+            </pre>
+          </div>
         </details>
       </div>
     );
@@ -452,21 +502,9 @@ function Bubble({ msg }: { msg: Msg }) {
       <div className="flex-1 min-w-0 space-y-2">
         {msg.attachments && msg.attachments.length > 0 && (
           <div className={`flex flex-wrap gap-1.5 max-w-[85%] ${isUser ? "ml-auto justify-end" : "mr-auto"}`}>
-            {msg.attachments.map((a, idx) => {
-              const href = msg.id ? `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/agents/chat/attachments/${msg.id}/${encodeURIComponent(a.name)}` : undefined;
-              const Inner = (
-                <span className="flex items-center gap-1.5 text-[12px] bg-muted/70 border border-border/80 rounded-md px-2 py-1 max-w-[220px]">
-                  <FileText className="size-3 text-muted-foreground shrink-0" />
-                  <span className="truncate" title={a.name}>{a.name}</span>
-                  {a.size != null && <span className="text-[10px] text-muted-foreground font-mono shrink-0">{formatBytes(a.size)}</span>}
-                </span>
-              );
-              return href ? (
-                <a key={idx} href={href} target="_blank" rel="noreferrer" className="hover:opacity-80">{Inner}</a>
-              ) : (
-                <span key={idx}>{Inner}</span>
-              );
-            })}
+            {msg.attachments.map((a, idx) => (
+              <AttachmentItem key={idx} messageId={msg.id} attachment={a} />
+            ))}
           </div>
         )}
         {msg.content && (
@@ -498,6 +536,72 @@ function Bubble({ msg }: { msg: Msg }) {
         )}
       </div>
     </div>
+  );
+}
+
+function AttachmentItem({ messageId, attachment }: { messageId?: number; attachment: Attachment }) {
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const [errored, setErrored] = useState(false);
+  const isImage = isImageAttachment(attachment);
+
+  useEffect(() => {
+    let revoke: string | null = null;
+    let aborted = false;
+    if (attachment.localUrl) {
+      setBlobUrl(attachment.localUrl);
+      return;
+    }
+    if (!messageId) return;
+    (async () => {
+      try {
+        const url = agents.attachmentUrl(messageId, attachment.name);
+        const tok = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+        const res = await fetch(url, { headers: tok ? { Authorization: `Bearer ${tok}` } : {} });
+        if (!res.ok) throw new Error(String(res.status));
+        const blob = await res.blob();
+        const obj = URL.createObjectURL(blob);
+        revoke = obj;
+        if (!aborted) setBlobUrl(obj);
+      } catch {
+        if (!aborted) setErrored(true);
+      }
+    })();
+    return () => {
+      aborted = true;
+      if (revoke) URL.revokeObjectURL(revoke);
+    };
+  }, [messageId, attachment.name, attachment.localUrl]);
+
+  if (isImage) {
+    return (
+      <div className="rounded-lg overflow-hidden border border-border/80 bg-muted max-w-[260px]">
+        {blobUrl ? (
+          <a href={blobUrl} target="_blank" rel="noreferrer">
+            <img src={blobUrl} alt={attachment.name} className="block max-h-[260px] w-auto" />
+          </a>
+        ) : (
+          <div className="flex items-center gap-1.5 text-[12px] px-2 py-1.5">
+            <FileText className="size-3 text-muted-foreground" />
+            <span className="truncate">{errored ? `⚠ ${attachment.name}` : attachment.name}</span>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  const chip = (
+    <span className="flex items-center gap-1.5 text-[12px] bg-muted/70 border border-border/80 rounded-md px-2 py-1 max-w-[220px]">
+      <FileText className="size-3 text-muted-foreground shrink-0" />
+      <span className="truncate" title={attachment.name}>{attachment.name}</span>
+      {attachment.size != null && (
+        <span className="text-[10px] text-muted-foreground font-mono shrink-0">{formatBytes(attachment.size)}</span>
+      )}
+    </span>
+  );
+  return blobUrl ? (
+    <a href={blobUrl} download={attachment.name} className="hover:opacity-80">{chip}</a>
+  ) : (
+    chip
   );
 }
 

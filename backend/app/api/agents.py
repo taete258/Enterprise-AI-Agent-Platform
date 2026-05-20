@@ -4,9 +4,10 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import select, delete
 from ..db.session import get_db
-from ..models import Agent, ChatSession, Message, User, AgentTool, Tool
+from ..models import Agent, ChatSession, Message, User, AgentTool, Tool, AgentKnowledge, Document
 from ..schemas.agent import AgentCreate, AgentUpdate, AgentOut, ChatResponse, CitationOut
 from ..schemas.tool import AgentToolOut, AgentToolUpdate
+from ..schemas.knowledge import DocumentOut
 from ..services.chat import run_chat
 from ..services.attachments import save_chat_attachments, ATTACHMENT_ROOT
 from ..services.audit import log_action
@@ -101,7 +102,7 @@ async def chat(
         session = ChatSession(user_id=user.id, agent_id=agent.id, title=(message[:60] or "New chat"))
         db.add(session); db.flush()
 
-    attachments_meta, attachment_text = await save_chat_attachments(files or [])
+    attachments_meta, attachment_text, image_payloads = await save_chat_attachments(files or [])
 
     user_text = message
     if attachment_text:
@@ -111,7 +112,7 @@ async def chat(
         assistant, citations = run_chat(
             db, user_id=user.id, agent=agent, session=session,
             user_text=user_text, attachments=attachments_meta,
-            original_message=message,
+            images=image_payloads, original_message=message,
         )
     except Exception as e:
         db.rollback()
@@ -197,6 +198,21 @@ def get_agent_tools(
             ))
             
     return result
+
+
+@router.get("/{agent_id}/knowledge", response_model=list[DocumentOut])
+def list_agent_knowledge(
+    agent_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)
+):
+    agent = db.get(Agent, agent_id)
+    if not agent or not _visible(db, user, agent, "view"):
+        raise HTTPException(404)
+    docs = db.scalars(
+        select(Document)
+        .join(AgentKnowledge, AgentKnowledge.document_id == Document.id)
+        .where(AgentKnowledge.agent_id == agent_id, Document.is_active == True)
+    ).all()
+    return docs
 
 
 @router.put("/{agent_id}/tools")

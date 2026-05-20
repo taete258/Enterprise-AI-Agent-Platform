@@ -43,7 +43,21 @@
     "published": "published",
     "private": "private",
     "noDescription": "ไม่มีคำอธิบาย",
-    "open": "Open"
+    "open": "Open",
+    "manage": "จัดการ"
+  },
+  "AgentManagePage": {
+    "subtitle": "จัดการ knowledge สำหรับ agent นี้",
+    "openChat": "เปิดแชท",
+    "noDescription": "ไม่มีคำอธิบาย",
+    "knowledgeTitle": "Knowledge",
+    "knowledgeDesc": "เลือกเอกสารที่ agent นี้จะใช้สำหรับการค้นหา RAG บันทึกเพื่อให้การเปลี่ยนแปลงมีผล",
+    "saveChanges": "บันทึก",
+    "saving": "กำลังบันทึก…",
+    "saved": "บันทึกแล้ว",
+    "noDocs": "ยังไม่มีเอกสารที่อัปโหลด",
+    "uploadLink": "อัปโหลดเอกสาร →",
+    "noDocDescription": "ไม่มีคำอธิบาย"
   },
   "NewAgentPage": {
     "title": "สร้างเอเจนต์ใหม่",
@@ -121,6 +135,8 @@
   "KnowledgePage": {
     "title": "Knowledge",
     "subtitle": "อัปโหลดเอกสารเพื่อใช้เป็นฐานความรู้ของ Agent (RAG)",
+    "documentsTab": "รายการเอกสารความรู้",
+    "graphTab": "โครงข่ายความรู้ (Knowledge Graph)",
     "dragPlaceholder": "ลากไฟล์มาวาง หรือคลิกเพื่อเลือก",
     "fileSupport": "รองรับ PDF, DOCX, TXT, MD, CSV",
     "descLabel": "คำอธิบาย (ไม่จำเป็น)",
@@ -135,7 +151,11 @@
     "unbindConfirm": "ปลดเอกสารนี้?",
     "bindSuccess": "ผูกเอกสารกับ Agent เรียบร้อย",
     "noDescription": "ไม่มีคำอธิบาย",
-    "noDocs": "ยังไม่มีเอกสาร"
+    "noDocs": "ยังไม่มีเอกสาร",
+    "deleteConfirmTitle": "ลบเอกสาร",
+    "deleteConfirmDescription": "คุณแน่ใจหรือว่าต้องการลบเอกสารนี้? การดำเนินการนี้ไม่สามารถยกเลิกได้",
+    "delete": "ลบ",
+    "cancel": "ยกเลิก"
   },
   "ModelsPage": {
     "title": "Models",

@@ -87,6 +87,7 @@ export const agents = {
   listTools: (agentId: number) => api<any[]>(`/api/agents/${agentId}/tools`),
   updateTools: (agentId: number, data: any[]) =>
     api(`/api/agents/${agentId}/tools`, { method: "PUT", body: JSON.stringify(data) }),
+  listKnowledge: (agentId: number) => api<any[]>(`/api/agents/${agentId}/knowledge`),
 };
 
 export const llm = {
@@ -132,6 +133,7 @@ export const knowledge = {
     api("/api/knowledge/bind", { method: "POST", body: JSON.stringify({ agent_id, document_id }) }),
   unbind: (agent_id: number, document_id: number) =>
     api("/api/knowledge/unbind", { method: "POST", body: JSON.stringify({ agent_id, document_id }) }),
+  graph: () => api<{ nodes: any[]; edges: any[] }>("/api/knowledge/graph"),
 };
 
 export const sessions = {

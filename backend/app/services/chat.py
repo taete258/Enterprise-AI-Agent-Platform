@@ -31,6 +31,7 @@ def run_chat(
     db: Session, *, user_id: int, agent: Agent, session: ChatSession, user_text: str,
     apply_pii_mask: bool = True,
     attachments: list[dict] | None = None,
+    images: list[dict] | None = None,
     original_message: str | None = None,
 ) -> tuple[Message, list]:
     model = db.get(LLMModel, agent.model_id)
@@ -54,7 +55,7 @@ def run_chat(
 
     # RAG retrieval against bound knowledge
     hits = retrieve(db, agent_id=agent.id, query=masked_text, top_k=4)
-    context_block = format_context(hits)
+    context_block = format_context(db, hits, agent.id)
 
     # Fetch all tools enabled for this agent
     agent_tools = db.scalars(
@@ -71,6 +72,8 @@ def run_chat(
     history = _to_history(session)
     if history and history[-1].role == "user":
         history[-1].content = masked_text
+        if images:
+            history[-1].images = images
 
     msgs: list[ChatMessage] = []
     system_parts = [agent.system_prompt] if agent.system_prompt else []

@@ -8,6 +8,8 @@ class ChatMessage:
     content: str
     tool_calls: list | None = None
     tool_call_id: str | None = None
+    # Optional list of image attachments: {"mime": "image/png", "b64": "..."}
+    images: list[dict] | None = None
 
 
 @dataclass

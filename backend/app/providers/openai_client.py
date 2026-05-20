@@ -21,7 +21,22 @@ class OpenAIClient:
         import json
         openai_msgs = []
         for m in messages:
-            msg_dict = {"role": m.role, "content": m.content}
+            if m.role == "user" and m.images:
+                parts: list[dict] = []
+                if m.content:
+                    parts.append({"type": "text", "text": m.content})
+                for img in m.images:
+                    mime = img.get("mime") or "image/png"
+                    b64 = img.get("b64") or ""
+                    if not b64:
+                        continue
+                    parts.append({
+                        "type": "image_url",
+                        "image_url": {"url": f"data:{mime};base64,{b64}"},
+                    })
+                msg_dict = {"role": m.role, "content": parts or m.content}
+            else:
+                msg_dict = {"role": m.role, "content": m.content}
             if m.tool_calls:
                 msg_dict["tool_calls"] = m.tool_calls
             if m.role == "tool" and m.tool_call_id:

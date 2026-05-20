@@ -5,11 +5,12 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 from ..db.session import get_db
-from ..models import Document, DocumentVersion, DocumentChunk, AgentKnowledge, Agent, User
-from ..schemas.knowledge import DocumentOut, DocumentVersionOut, BindKnowledge
+from ..models import Document, DocumentVersion, DocumentChunk, AgentKnowledge, Agent, User, GraphEntity, GraphRelationship
+from ..schemas.knowledge import DocumentOut, DocumentVersionOut, BindKnowledge, GraphDataOut
 from ..services.extractor import extract_text, chunk_text
 from ..services.filetype import classify
 from ..services.embeddings import embed_texts
+from ..services.graph_extraction import extract_and_store_graph
 from ..services.audit import log_action
 from .deps import get_current_user
 
@@ -78,10 +79,17 @@ async def upload(
         except Exception as e:
             db.rollback()
             raise HTTPException(502, f"Embedding failed: {e}")
+        chunks_list = []
         for i, (c, v) in enumerate(zip(chunks, vectors)):
-            db.add(DocumentChunk(
+            chunk_obj = DocumentChunk(
                 document_id=doc.id, version_id=version.id, ordinal=i, text=c, embedding=v,
-            ))
+            )
+            db.add(chunk_obj)
+            chunks_list.append(chunk_obj)
+        db.flush()
+        
+        # Run GraphRAG extraction
+        extract_and_store_graph(db, chunks_list, doc.id)
 
     log_action(
         db, user_id=user.id, action="knowledge.upload",
@@ -144,3 +152,27 @@ def unbind(payload: BindKnowledge, db: Session = Depends(get_db), user: User = D
     db.query(AgentKnowledge).filter_by(agent_id=payload.agent_id, document_id=payload.document_id).delete()
     db.commit()
     return {"ok": True}
+
+
+@router.get("/graph", response_model=GraphDataOut)
+def get_knowledge_graph(db: Session = Depends(get_db), _: User = Depends(get_current_user)):
+    """Retrieve all active graph nodes and relationships."""
+    entities = db.scalars(select(GraphEntity)).all()
+    relationships = db.scalars(select(GraphRelationship)).all()
+    
+    nodes = [
+        {"id": ent.id, "label": ent.name, "type": ent.entity_type, "description": ent.description or ""}
+        for ent in entities
+    ]
+    edges = [
+        {
+            "id": rel.id,
+            "source": rel.source_id,
+            "target": rel.target_id,
+            "type": rel.relation_type,
+            "description": rel.description or ""
+        }
+        for rel in relationships
+    ]
+    return {"nodes": nodes, "edges": edges}
+
