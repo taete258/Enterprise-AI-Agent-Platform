@@ -1,11 +1,12 @@
 from datetime import datetime, timedelta
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import select, func
 from pydantic import BaseModel
 from ..db.session import get_db
-from ..models import UsageRecord, AuditLog, User, Agent
+from ..models import UsageRecord, AuditLog, User, Agent, Tool
 from ..schemas.auth import UserOut
+from ..schemas.tool import ToolCreate, ToolUpdate, ToolOut
 from .deps import require_superuser
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
@@ -94,3 +95,88 @@ def audit(db: Session = Depends(get_db), limit: int = Query(100, ge=1, le=1000))
 @router.get("/users", response_model=list[UserOut], dependencies=[Depends(require_superuser)])
 def list_users(db: Session = Depends(get_db)):
     return db.scalars(select(User).order_by(User.id)).all()
+
+
+class ToolTestRequest(BaseModel):
+    url: str
+    method: str = "GET"
+    headers: str = "{}"
+    parameters: str = "{}"
+
+
+@router.get("/tools", response_model=list[ToolOut], dependencies=[Depends(require_superuser)])
+def list_tools(db: Session = Depends(get_db)):
+    return db.scalars(select(Tool).order_by(Tool.id)).all()
+
+
+@router.post("/tools", response_model=ToolOut, dependencies=[Depends(require_superuser)])
+def create_tool(payload: ToolCreate, db: Session = Depends(get_db)):
+    if db.scalar(select(Tool).where(Tool.key == payload.key)):
+        raise HTTPException(400, "Tool key already exists")
+    tool = Tool(**payload.model_dump())
+    db.add(tool)
+    db.commit()
+    db.refresh(tool)
+    return tool
+
+
+@router.patch("/tools/{tool_id}", response_model=ToolOut, dependencies=[Depends(require_superuser)])
+def update_tool(tool_id: int, payload: ToolUpdate, db: Session = Depends(get_db)):
+    tool = db.get(Tool, tool_id)
+    if not tool:
+        raise HTTPException(404, "Tool not found")
+    if tool.is_system and payload.key is not None and payload.key != tool.key:
+        raise HTTPException(400, "Cannot change key of system tools")
+    
+    for k, v in payload.model_dump(exclude_unset=True).items():
+        setattr(tool, k, v)
+        
+    db.commit()
+    db.refresh(tool)
+    return tool
+
+
+@router.delete("/tools/{tool_id}", dependencies=[Depends(require_superuser)])
+def delete_tool(tool_id: int, db: Session = Depends(get_db)):
+    tool = db.get(Tool, tool_id)
+    if not tool:
+        raise HTTPException(404, "Tool not found")
+    if tool.is_system:
+        raise HTTPException(400, "Cannot delete system tools")
+    db.delete(tool)
+    db.commit()
+    return {"ok": True}
+
+
+@router.post("/tools/test", dependencies=[Depends(require_superuser)])
+def test_tool(payload: ToolTestRequest):
+    import json
+    import httpx
+    
+    try:
+        headers = json.loads(payload.headers or "{}")
+        params = json.loads(payload.parameters or "{}")
+    except Exception as e:
+        raise HTTPException(400, f"Invalid JSON in headers or parameters: {e}")
+        
+    method = payload.method.upper()
+    url = payload.url
+    
+    if url.startswith("/api/"):
+        url = f"http://localhost:8000{url}"
+        
+    try:
+        with httpx.Client(timeout=10.0) as client:
+            if method in ("POST", "PUT", "PATCH"):
+                resp = client.request(method, url, headers=headers, json=params)
+            else:
+                resp = client.request(method, url, headers=headers, params=params)
+            
+            return {
+                "ok": resp.status_code < 400,
+                "status": resp.status_code,
+                "body": resp.text,
+            }
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+

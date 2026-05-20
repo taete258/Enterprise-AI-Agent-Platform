@@ -31,24 +31,96 @@ class AnthropicClient:
         )
         return {"ok": True, "probe_model": resp.model, "stop_reason": resp.stop_reason}
 
-    def chat(self, model, messages, temperature=0.7, max_tokens=2048):
+    def chat(self, model, messages, temperature=0.7, max_tokens=2048, tools=None):
+        import json
         system = "\n\n".join(m.content for m in messages if m.role == "system")
-        convo = [
-            {"role": "user" if m.role == "user" else "assistant", "content": m.content}
-            for m in messages if m.role in ("user", "assistant")
-        ]
-        resp = self._c.messages.create(
-            model=model,
-            system=system or None,
-            messages=convo,
-            temperature=temperature,
-            max_tokens=max_tokens,
-        )
+        
+        convo = []
+        for m in messages:
+            if m.role == "system":
+                continue
+            if m.role == "user":
+                convo.append({"role": "user", "content": m.content})
+            elif m.role == "assistant":
+                content_blocks = []
+                if m.content:
+                    content_blocks.append({"type": "text", "text": m.content})
+                if m.tool_calls:
+                    for tc in m.tool_calls:
+                        try:
+                            args_dict = json.loads(tc["function"]["arguments"])
+                        except Exception:
+                            args_dict = {}
+                        content_blocks.append({
+                            "type": "tool_use",
+                            "id": tc["id"],
+                            "name": tc["function"]["name"],
+                            "input": args_dict
+                        })
+                if content_blocks:
+                    convo.append({"role": "assistant", "content": content_blocks})
+                else:
+                    convo.append({"role": "assistant", "content": " "})
+            elif m.role == "tool":
+                tool_result_block = {
+                    "type": "tool_result",
+                    "tool_use_id": m.tool_call_id,
+                    "content": m.content
+                }
+                # Group consecutive tool results in the same user message
+                if convo and convo[-1]["role"] == "user" and isinstance(convo[-1]["content"], list):
+                    convo[-1]["content"].append(tool_result_block)
+                else:
+                    convo.append({"role": "user", "content": [tool_result_block]})
+
+        anthropic_tools = []
+        if tools:
+            for t in tools:
+                try:
+                    schema = json.loads(t.schema_json)
+                except Exception:
+                    schema = {"type": "object", "properties": {}}
+                clean_key = t.key.replace(".", "_")
+                anthropic_tools.append({
+                    "name": clean_key,
+                    "description": t.description,
+                    "input_schema": schema
+                })
+
+        kwargs = {
+            "model": model,
+            "system": system or None,
+            "messages": convo,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+        }
+        if anthropic_tools:
+            kwargs["tools"] = anthropic_tools
+
+        resp = self._c.messages.create(**kwargs)
+        
         text = "".join(b.text for b in resp.content if getattr(b, "type", "") == "text")
         u = resp.usage
+        
+        # Parse tool calls
+        raw_tool_calls = None
+        tool_use_blocks = [b for b in resp.content if getattr(b, "type", "") == "tool_use"]
+        if tool_use_blocks:
+            raw_tool_calls = []
+            for b in tool_use_blocks:
+                raw_tool_calls.append({
+                    "id": b.id,
+                    "type": "function",
+                    "function": {
+                        "name": b.name,
+                        "arguments": json.dumps(b.input)
+                    }
+                })
+
         return ChatCompletion(
             content=text,
             tokens_in=getattr(u, "input_tokens", 0) or 0,
             tokens_out=getattr(u, "output_tokens", 0) or 0,
+            tool_calls=raw_tool_calls,
             raw=resp.model_dump() if hasattr(resp, "model_dump") else {},
         )

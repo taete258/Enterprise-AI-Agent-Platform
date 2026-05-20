@@ -5,6 +5,7 @@ from .chat import ChatSession, Message, Citation
 from .knowledge import Document, DocumentVersion, DocumentChunk
 from .audit import AuditLog, UsageRecord
 from .acl import ResourceACL
+from .tool import Tool
 
 __all__ = [
     "User", "Role", "UserRole", "Group", "UserGroup",
@@ -14,4 +15,5 @@ __all__ = [
     "Document", "DocumentVersion", "DocumentChunk",
     "AuditLog", "UsageRecord",
     "ResourceACL",
+    "Tool",
 ]

@@ -64,6 +64,9 @@ export const agents = {
       "/api/agents/chat",
       { method: "POST", body: JSON.stringify(data) }
     ),
+  listTools: (agentId: number) => api<any[]>(`/api/agents/${agentId}/tools`),
+  updateTools: (agentId: number, data: any[]) =>
+    api(`/api/agents/${agentId}/tools`, { method: "PUT", body: JSON.stringify(data) }),
 };
 
 export const llm = {
@@ -122,4 +125,10 @@ export const admin = {
   users: () => api<any[]>("/api/admin/users"),
   createUser: (data: { email: string; full_name: string; password: string }) =>
     api("/api/auth/users", { method: "POST", body: JSON.stringify(data) }),
+  listTools: () => api<any[]>("/api/admin/tools"),
+  createTool: (data: any) => api("/api/admin/tools", { method: "POST", body: JSON.stringify(data) }),
+  updateTool: (id: number, data: any) => api(`/api/admin/tools/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  deleteTool: (id: number) => api(`/api/admin/tools/${id}`, { method: "DELETE" }),
+  testTool: (data: { url: string; method?: string; headers?: string; parameters?: string }) =>
+    api(`/api/admin/tools/test`, { method: "POST", body: JSON.stringify(data) }),
 };

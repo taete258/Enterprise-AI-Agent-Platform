@@ -6,6 +6,8 @@ from typing import Protocol
 class ChatMessage:
     role: str  # system | user | assistant | tool
     content: str
+    tool_calls: list | None = None
+    tool_call_id: str | None = None
 
 
 @dataclass
@@ -13,6 +15,7 @@ class ChatCompletion:
     content: str
     tokens_in: int = 0
     tokens_out: int = 0
+    tool_calls: list | None = None
     raw: dict = field(default_factory=dict)
 
 

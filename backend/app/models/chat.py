@@ -23,6 +23,8 @@ class Message(Base):
     content: Mapped[str] = mapped_column(Text)
     # JSON-string for attachments (images, files)
     attachments: Mapped[str] = mapped_column(String, default="[]")
+    tool_calls: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON-string of tool calls
+    tool_call_id: Mapped[str | None] = mapped_column(String(128), nullable=True)  # response to tool call ID
     tokens_in: Mapped[int] = mapped_column(Integer, default=0)
     tokens_out: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.utcnow())

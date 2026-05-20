@@ -10,10 +10,22 @@ from .deps import get_current_user
 router = APIRouter(prefix="/api/sessions", tags=["sessions"])
 
 
+class CitationOut(BaseModel):
+    document_id: int
+    snippet: str
+    score: float
+
+    class Config:
+        from_attributes = True
+
+
 class MessageOut(BaseModel):
     id: int
     role: str
     content: str
+    tool_calls: str | None = None
+    tool_call_id: str | None = None
+    citations: list[CitationOut] = []
     created_at: datetime
 
     class Config:

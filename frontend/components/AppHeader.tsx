@@ -1,24 +1,27 @@
 "use client";
-import Link from "next/link";
+import { Link, usePathname, useRouter } from "@/i18n/routing";
 import { useEffect, useState } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
 import Logo from "./Logo";
-
-const TABS = [
-  { href: "/agents", label: "Agents" },
-  { href: "/admin/providers", label: "Admin", startsWith: "/admin" },
-];
+import LocaleSwitcher from "./LocaleSwitcher";
 
 export default function AppHeader() {
   const router = useRouter();
   const pathname = usePathname() || "";
+  const locale = useLocale();
+  const t = useTranslations("Navigation");
   const [email, setEmail] = useState<string>("");
 
+  const TABS = [
+    { href: "/agents" as const, label: t("agents") },
+    { href: "/admin/providers" as const, label: "Admin", startsWith: "/admin" },
+  ];
+
   useEffect(() => {
-    const t = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-    if (!t) return;
+    const tok = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    if (!tok) return;
     try {
-      const payload = JSON.parse(atob(t.split(".")[1]));
+      const payload = JSON.parse(atob(tok.split(".")[1]));
       setEmail(payload.email || "");
     } catch {}
   }, []);
@@ -33,13 +36,13 @@ export default function AppHeader() {
       <div className="max-w-6xl mx-auto px-5 h-16 flex items-center justify-between">
         <Link href="/agents"><Logo /></Link>
         <nav className="hidden sm:flex items-center gap-1">
-          {TABS.map((t) => {
-            const active = t.startsWith ? pathname.startsWith(t.startsWith) : pathname === t.href;
+          {TABS.map((tab) => {
+            const active = tab.startsWith ? pathname.startsWith(tab.startsWith) : pathname === tab.href;
             return (
-              <Link key={t.href} href={t.href}
+              <Link key={tab.href} href={tab.href}
                     className={`px-3 py-2 rounded-xl text-sm font-medium transition-colors
                                 ${active ? "bg-brand-100 text-brand-800" : "text-ink-700 hover:bg-brand-50 hover:text-brand-700"}`}>
-                {t.label}
+                {tab.label}
               </Link>
             );
           })}
@@ -53,7 +56,8 @@ export default function AppHeader() {
               <span className="text-sm text-ink-700">{email}</span>
             </div>
           )}
-          <button onClick={logout} className="btn-ghost !py-1.5 !px-3 text-xs">ออกจากระบบ</button>
+          <LocaleSwitcher currentLocale={locale} />
+          <button onClick={logout} className="btn-ghost !py-1.5 !px-3 text-xs">{t("logout")}</button>
         </div>
       </div>
     </header>

@@ -1,40 +1,15 @@
 "use client";
-import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, Link } from "@/i18n/routing";
 import { useEffect, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import {
-  Bot, MessagesSquare, BookOpen, Cpu, Plug, Users, BarChart3, ScrollText, LogOut,
+  Bot, MessagesSquare, BookOpen, Cpu, Plug, Users, BarChart3, ScrollText, LogOut, Wrench,
 } from "lucide-react";
 import Logo from "./Logo";
+import LocaleSwitcher from "./LocaleSwitcher";
 import { Avatar, AvatarFallback } from "./ui/avatar";
 import { Separator } from "./ui/separator";
 import { isTokenValid } from "@/lib/api";
-
-const NAV = [
-  {
-    section: "Workspace",
-    items: [
-      { href: "/agents", label: "Agents", icon: Bot },
-      { href: "/chat",   label: "Chats",  icon: MessagesSquare },
-    ],
-  },
-  {
-    section: "Library",
-    items: [
-      { href: "/admin/knowledge", label: "Knowledge", icon: BookOpen },
-      { href: "/admin/models",    label: "Models",    icon: Cpu },
-    ],
-  },
-  {
-    section: "Manage",
-    items: [
-      { href: "/admin/providers", label: "Providers", icon: Plug },
-      { href: "/admin/users",     label: "Users",     icon: Users },
-      { href: "/admin/dashboard", label: "Usage",     icon: BarChart3 },
-      { href: "/admin/audit",     label: "Audit log", icon: ScrollText },
-    ],
-  },
-];
 
 export default function AppShell({ children, rightPanel }: {
   children: React.ReactNode;
@@ -42,20 +17,49 @@ export default function AppShell({ children, rightPanel }: {
 }) {
   const pathname = usePathname() || "";
   const router = useRouter();
+  const locale = useLocale();
+  const t = useTranslations("Navigation");
   const [email, setEmail] = useState("");
   const [checkingAuth, setCheckingAuth] = useState(true);
 
+  const NAV = [
+    {
+      section: t("workspace"),
+      items: [
+        { href: "/agents", label: t("agents"), icon: Bot },
+        { href: "/chat",   label: t("chats"),  icon: MessagesSquare },
+      ],
+    },
+    {
+      section: t("library"),
+      items: [
+        { href: "/admin/knowledge", label: t("knowledge"), icon: BookOpen },
+        { href: "/admin/models",    label: t("models"),    icon: Cpu },
+        { href: "/admin/tools",     label: t("tools"),     icon: Wrench },
+      ],
+    },
+    {
+      section: t("manage"),
+      items: [
+        { href: "/admin/providers", label: t("providers"), icon: Plug },
+        { href: "/admin/users",     label: t("users"),     icon: Users },
+        { href: "/admin/dashboard", label: t("usage"),     icon: BarChart3 },
+        { href: "/admin/audit",     label: t("auditLog"),  icon: ScrollText },
+      ],
+    },
+  ];
+
   useEffect(() => {
-    const t = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-    if (!isTokenValid(t)) {
-      router.push(`/unauthorized?from=${encodeURIComponent(pathname)}`);
+    const tok = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    if (!isTokenValid(tok)) {
+      router.push(`/unauthorized?from=${encodeURIComponent(pathname)}` as any);
     } else {
       try {
-        const payload = JSON.parse(atob(t!.split(".")[1]));
+        const payload = JSON.parse(atob(tok!.split(".")[1]));
         setEmail(payload.email || "");
         setCheckingAuth(false);
       } catch {
-        router.push(`/unauthorized?from=${encodeURIComponent(pathname)}`);
+        router.push(`/unauthorized?from=${encodeURIComponent(pathname)}` as any);
       }
     }
   }, [pathname, router]);
@@ -67,7 +71,7 @@ export default function AppShell({ children, rightPanel }: {
       <div className="h-screen w-screen flex flex-col items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-3">
           <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-[13px] text-muted-foreground font-medium animate-pulse">กำลังตรวจสอบสิทธิ์…</p>
+          <p className="text-[13px] text-muted-foreground font-medium animate-pulse">{t("checkingAuth")}</p>
         </div>
       </div>
     );
@@ -89,7 +93,7 @@ export default function AppShell({ children, rightPanel }: {
                   const active = pathname === it.href || (it.href !== "/" && pathname.startsWith(it.href));
                   const Icon = it.icon;
                   return (
-                    <Link key={it.href} href={it.href} className={`nav-item ${active ? "active" : ""}`}>
+                    <Link key={it.href} href={it.href as any} className={`nav-item ${active ? "active" : ""}`}>
                       <Icon className="size-4" strokeWidth={1.8} />
                       <span>{it.label}</span>
                     </Link>
@@ -100,14 +104,15 @@ export default function AppShell({ children, rightPanel }: {
           ))}
         </nav>
         <Separator className="bg-sidebar-border" />
-        <div className="p-2.5">
+        <div className="p-2.5 space-y-2">
+          <LocaleSwitcher currentLocale={locale} />
           <div className="flex items-center gap-2 px-1 py-1">
             <Avatar><AvatarFallback className="bg-primary text-primary-foreground">{(email[0] || "?").toUpperCase()}</AvatarFallback></Avatar>
             <div className="min-w-0 flex-1">
               <div className="text-[12px] text-foreground truncate">{email || "guest"}</div>
               <button onClick={logout}
                       className="text-[10.5px] text-muted-foreground hover:text-primary inline-flex items-center gap-1">
-                <LogOut className="size-3" /> ออกจากระบบ
+                <LogOut className="size-3" /> {t("logout")}
               </button>
             </div>
           </div>
