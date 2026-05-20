@@ -130,7 +130,16 @@
     "cost": "Cost (USD)",
     "byUser": "By user",
     "byAgent": "By agent",
-    "noData": "ไม่มีข้อมูล"
+    "noData": "ไม่มีข้อมูล",
+    "userTableTitle": "รายละเอียดการใช้งานรายบุคคล",
+    "searchPlaceholder": "ค้นหารายชื่อหรืออีเมลผู้ใช้...",
+    "userCol": "ผู้ใช้",
+    "tokensInCol": "โทเค็นเข้า (Input)",
+    "tokensOutCol": "โทเค็นออก (Output)",
+    "totalTokensCol": "โทเค็นทั้งหมด",
+    "costCol": "ค่าใช้จ่าย (USD)",
+    "costTrend": "แนวโน้มค่าใช้จ่าย (USD)",
+    "tokenTrend": "แนวโน้มปริมาณการใช้โทเค็น"
   },
   "KnowledgePage": {
     "title": "Knowledge",
@@ -273,7 +282,7 @@
   },
   "AuditPage": {
     "title": "Audit log",
-    "subtitle": "ประวัติการดำเนินการ 200 รายการล่าสุด",
+    "subtitle": "ประวัติการดำเนินการระบบ",
     "time": "เวลา",
     "noActivities": "ยังไม่มีกิจกรรม"
   }

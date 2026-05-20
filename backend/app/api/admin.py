@@ -26,11 +26,19 @@ class CostBreakdownRow(BaseModel):
     cost_usd: float
 
 
+class DailyCostRow(BaseModel):
+    day: str
+    tokens_in: int
+    tokens_out: int
+    cost_usd: float
+
+
 class CostReport(BaseModel):
     since: datetime
     total: CostTotals
     by_user: list[CostBreakdownRow]
     by_agent: list[CostBreakdownRow]
+    daily: list[DailyCostRow]
 
 
 @router.get("/costs", response_model=CostReport, dependencies=[Depends(require_superuser)])
@@ -45,12 +53,12 @@ def costs(db: Session = Depends(get_db), days: int = Query(30, ge=1, le=365)):
 
     by_user_rows = db.execute(
         select(
-            UsageRecord.user_id, User.email,
+            UsageRecord.user_id, User.email, User.full_name,
             func.sum(UsageRecord.tokens_in), func.sum(UsageRecord.tokens_out), func.sum(UsageRecord.cost_usd),
         )
         .join(User, User.id == UsageRecord.user_id)
         .where(UsageRecord.created_at >= since)
-        .group_by(UsageRecord.user_id, User.email)
+        .group_by(UsageRecord.user_id, User.email, User.full_name)
         .order_by(func.sum(UsageRecord.cost_usd).desc())
     ).all()
 
@@ -65,11 +73,37 @@ def costs(db: Session = Depends(get_db), days: int = Query(30, ge=1, le=365)):
         .order_by(func.sum(UsageRecord.cost_usd).desc())
     ).all()
 
+    daily_rows = db.execute(
+        select(
+            func.date(UsageRecord.created_at),
+            func.sum(UsageRecord.tokens_in),
+            func.sum(UsageRecord.tokens_out),
+            func.sum(UsageRecord.cost_usd)
+        )
+        .where(UsageRecord.created_at >= since)
+        .group_by(func.date(UsageRecord.created_at))
+        .order_by(func.date(UsageRecord.created_at))
+    ).all()
+
+    daily_data = []
+    for r in daily_rows:
+        day_val = r[0]
+        day_str = day_val.strftime("%Y-%m-%d") if hasattr(day_val, "strftime") else str(day_val)
+        daily_data.append(
+            DailyCostRow(
+                day=day_str,
+                tokens_in=int(r[1]),
+                tokens_out=int(r[2]),
+                cost_usd=float(r[3])
+            )
+        )
+
     return CostReport(
         since=since,
         total=CostTotals(tokens_in=int(t_in), tokens_out=int(t_out), cost_usd=float(t_cost)),
-        by_user=[CostBreakdownRow(key=str(r[0]), label=r[1], tokens_in=int(r[2]), tokens_out=int(r[3]), cost_usd=float(r[4])) for r in by_user_rows],
+        by_user=[CostBreakdownRow(key=str(r[0]), label=f"{r[2]} ({r[1]})" if r[2] else r[1], tokens_in=int(r[3]), tokens_out=int(r[4]), cost_usd=float(r[5])) for r in by_user_rows],
         by_agent=[CostBreakdownRow(key=str(r[0]), label=r[1], tokens_in=int(r[2]), tokens_out=int(r[3]), cost_usd=float(r[4])) for r in by_agent_rows],
+        daily=daily_data,
     )
 
 
@@ -87,9 +121,68 @@ class AuditEntry(BaseModel):
         from_attributes = True
 
 
-@router.get("/audit", response_model=list[AuditEntry], dependencies=[Depends(require_superuser)])
-def audit(db: Session = Depends(get_db), limit: int = Query(100, ge=1, le=1000)):
-    return db.scalars(select(AuditLog).order_by(AuditLog.id.desc()).limit(limit)).all()
+class AuditListResponse(BaseModel):
+    items: list[AuditEntry]
+    total: int
+    skip: int
+    limit: int
+
+
+@router.get("/audit/filters", dependencies=[Depends(require_superuser)])
+def audit_filters(db: Session = Depends(get_db)):
+    actions = db.scalars(select(AuditLog.action).distinct().order_by(AuditLog.action)).all()
+    resource_types = db.scalars(select(AuditLog.resource_type).distinct().order_by(AuditLog.resource_type)).all()
+    return {
+        "actions": [a for a in actions if a],
+        "resource_types": [r for r in resource_types if r],
+    }
+
+
+@router.get("/audit", response_model=AuditListResponse, dependencies=[Depends(require_superuser)])
+def audit(
+    db: Session = Depends(get_db),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    search: str = Query("", min_length=0),
+    action: str = Query("", min_length=0),
+    resource_type: str = Query("", min_length=0),
+    date_from: datetime | None = Query(None),
+    date_to: datetime | None = Query(None),
+):
+    query = select(AuditLog)
+
+    if search:
+        search_term = f"%{search}%"
+        query = query.where(
+            (AuditLog.user_id == search if search.isdigit() else False)
+            | AuditLog.action.ilike(search_term)
+            | AuditLog.resource_type.ilike(search_term)
+            | AuditLog.resource_id.ilike(search_term)
+            | AuditLog.detail.ilike(search_term)
+        )
+
+    if action:
+        query = query.where(AuditLog.action == action)
+
+    if resource_type:
+        query = query.where(AuditLog.resource_type == resource_type)
+
+    if date_from:
+        query = query.where(AuditLog.created_at >= date_from)
+
+    if date_to:
+        query = query.where(AuditLog.created_at <= date_to)
+
+    count_query = select(func.count()).select_from(AuditLog)
+    if query.whereclause is not None:
+        count_query = count_query.where(query.whereclause)
+    total = db.scalar(count_query)
+
+    items = db.scalars(
+        query.order_by(AuditLog.id.desc()).offset(skip).limit(limit)
+    ).all()
+
+    return AuditListResponse(items=items, total=total, skip=skip, limit=limit)
 
 
 @router.get("/users", response_model=list[UserOut], dependencies=[Depends(require_superuser)])

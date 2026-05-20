@@ -130,7 +130,16 @@
     "cost": "Cost (USD)",
     "byUser": "By user",
     "byAgent": "By agent",
-    "noData": "No data available"
+    "noData": "No data available",
+    "userTableTitle": "Detailed User Usage",
+    "searchPlaceholder": "Search user by name or email...",
+    "userCol": "User",
+    "tokensInCol": "Tokens In",
+    "tokensOutCol": "Tokens Out",
+    "totalTokensCol": "Total Tokens",
+    "costCol": "Cost",
+    "costTrend": "Cost Trend (USD)",
+    "tokenTrend": "Token Trend (Tokens)"
   },
   "KnowledgePage": {
     "title": "Knowledge",
@@ -273,7 +282,7 @@
   },
   "AuditPage": {
     "title": "Audit log",
-    "subtitle": "Latest 200 activity rows",
+    "subtitle": "System activity history",
     "time": "Time",
     "noActivities": "No activities yet"
   }
