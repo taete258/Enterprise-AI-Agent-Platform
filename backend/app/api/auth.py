@@ -43,7 +43,7 @@ def create_user(payload: UserCreate, db: Session = Depends(get_db)):
 
 
 @router.patch("/users/{user_id}", response_model=UserOut, dependencies=[Depends(require_superuser)])
-def update_user(user_id: int, payload: UserUpdate, db: Session = Depends(get_db)):
+def update_user(user_id: int, payload: UserUpdate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     user = db.get(User, user_id)
     if not user:
         raise HTTPException(404, "User not found")
@@ -60,7 +60,7 @@ def update_user(user_id: int, payload: UserUpdate, db: Session = Depends(get_db)
 
     db.commit()
     db.refresh(user)
-    log_action(db, action="user.update", resource_type="user", resource_id=str(user.id))
+    log_action(db, user_id=current_user.id, action="user.update", resource_type="user", resource_id=str(user.id))
     return user
 
 
@@ -73,7 +73,7 @@ def delete_user(user_id: int, current_user: User = Depends(get_current_user), db
     if user.id == current_user.id:
         raise HTTPException(400, "Cannot delete your own user account")
 
-    log_action(db, action="user.delete", resource_type="user", resource_id=str(user_id))
+    log_action(db, user_id=current_user.id, action="user.delete", resource_type="user", resource_id=str(user_id))
     db.delete(user)
     db.commit()
     return {"ok": True}

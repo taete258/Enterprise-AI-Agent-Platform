@@ -6,7 +6,15 @@
     "password": "Password",
     "signingIn": "Signing in…",
     "continue": "Continue",
-    "defaultCredentials": "Default"
+    "defaultCredentials": "Default",
+    "heroTitle": "Welcome Back",
+    "heroSubtitle": "Sign in to access your intelligent agent management system and streamline your workflow.",
+    "feature1Title": "Secure & Fast",
+    "feature1Desc": "Enterprise-grade security for your peace of mind",
+    "feature2Title": "Always Available",
+    "feature2Desc": "Access your agents anytime, anywhere",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password"
   },
   "UnauthorizedPage": {
     "title": "Access Denied",
