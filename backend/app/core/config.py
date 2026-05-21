@@ -15,6 +15,17 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     anthropic_api_key: str = ""
 
+    # MinIO
+    minio_endpoint: str = "minio:9000"
+    minio_public_endpoint: str = "http://localhost:9000"
+    minio_root_user: str = "minio"
+    minio_root_password: str = "changeme-minio"
+    minio_use_ssl: bool = False
+    minio_bucket_docs: str = "docs"
+    minio_bucket_attachments: str = "chat-attachments"
+    minio_bucket_images: str = "images"
+    minio_presign_expiry: int = 3600
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]

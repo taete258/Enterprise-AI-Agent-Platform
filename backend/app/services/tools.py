@@ -1,9 +1,13 @@
+import hashlib
 import json
 import math
 import httpx
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 from ..models import Tool
+from . import storage
+from ..core.config import get_settings
+from ..providers.image_client import get_image_client
 
 
 def safe_eval(expr: str) -> str:
@@ -27,6 +31,53 @@ def safe_eval(expr: str) -> str:
         return f"Error evaluating math expression: {e}"
 
 
+def _run_generate_image(tool: Tool | None, args: dict, agent_config_str: str) -> str:
+    prompt = (args.get("prompt") or "").strip()
+    if not prompt:
+        return "Error: 'prompt' is required for generate_image."
+    size = args.get("size") or "1024x1024"
+    try:
+        n = int(args.get("n") or 1)
+    except (TypeError, ValueError):
+        n = 1
+    n = max(1, min(n, 4))
+
+    # Provider + opts from tool row, then agent overrides
+    provider = (tool.url if tool and tool.url else "openai")
+    try:
+        opts = json.loads(tool.headers) if tool and tool.headers else {}
+    except Exception:
+        opts = {}
+    if agent_config_str:
+        try:
+            agent_cfg = json.loads(agent_config_str) or {}
+            if isinstance(agent_cfg.get("image"), dict):
+                opts.update(agent_cfg["image"])
+            if agent_cfg.get("provider"):
+                provider = agent_cfg["provider"]
+        except Exception:
+            pass
+
+    try:
+        client = get_image_client(provider, opts)
+        images = client.generate(prompt=prompt, size=size, n=n)
+    except Exception as e:
+        return f"Image generation failed: {e}"
+
+    if not images:
+        return "Image generation returned no images."
+
+    bucket = get_settings().minio_bucket_images
+    out = []
+    for img_bytes in images:
+        sha = hashlib.sha256(img_bytes).hexdigest()
+        key = f"{sha[:2]}/{sha}.png"
+        if not storage.object_exists(bucket, key):
+            storage.put_object(bucket, key, img_bytes, content_type="image/png")
+        out.append({"url": storage.presigned_url(bucket, key), "key": key})
+    return json.dumps({"prompt": prompt, "size": size, "images": out})
+
+
 def execute_tool(db: Session, tool_key: str, args: dict, agent_config_str: str) -> str:
     """Execute a tool by key, merging agent-specific overrides."""
     # 1. System Calculator
@@ -42,6 +93,9 @@ def execute_tool(db: Session, tool_key: str, args: dict, agent_config_str: str) 
     if tool.type == "system" and tool.key == "calculator":
         expression = args.get("expression", "")
         return safe_eval(expression)
+
+    if tool.key == "generate_image":
+        return _run_generate_image(tool, args, agent_config_str)
 
     if tool.type == "api":
         url = tool.url

@@ -5,9 +5,8 @@ from pathlib import Path
 from fastapi import UploadFile, HTTPException
 
 from .extractor import extract_text
-
-ATTACHMENT_ROOT = Path(os.environ.get("CHAT_ATTACHMENT_STORAGE", "/app/storage/chat_attachments"))
-ATTACHMENT_ROOT.mkdir(parents=True, exist_ok=True)
+from . import storage
+from ..core.config import get_settings
 
 MAX_FILE_BYTES = int(os.environ.get("CHAT_ATTACHMENT_MAX_BYTES", str(15 * 1024 * 1024)))
 MAX_IMAGE_BYTES = int(os.environ.get("CHAT_ATTACHMENT_MAX_IMAGE_BYTES", str(8 * 1024 * 1024)))
@@ -48,20 +47,22 @@ async def save_chat_attachments(files: list[UploadFile]) -> tuple[list[dict], st
 
         digest = hashlib.sha256(data).hexdigest()
         suffix = Path(f.filename).suffix.lower()
-        sub = ATTACHMENT_ROOT / digest[:2]
-        sub.mkdir(parents=True, exist_ok=True)
-        storage_path = sub / f"{digest}{suffix}"
-        if not storage_path.exists():
-            storage_path.write_bytes(data)
-
+        object_key = f"{digest[:2]}/{digest}{suffix}"
         content_type = f.content_type or ""
+        bucket = get_settings().minio_bucket_attachments
+        if not storage.object_exists(bucket, object_key):
+            storage.put_object(
+                bucket, object_key, data,
+                content_type=content_type or "application/octet-stream",
+            )
+
         is_image = suffix in IMAGE_EXTS or content_type.startswith("image/")
 
         meta.append({
             "name": f.filename,
             "size": len(data),
             "mime": content_type or (IMAGE_MIME_BY_EXT.get(suffix, "") if is_image else ""),
-            "path": str(storage_path),
+            "path": object_key,
             "hash": digest,
         })
 

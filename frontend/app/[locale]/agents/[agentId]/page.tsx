@@ -10,7 +10,17 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "@/i18n/routing";
-import { AlertCircle, FileText, MessageSquare, Settings, BookOpen, Table, FileType } from "lucide-react";
+import { AlertCircle, FileText, MessageSquare, Settings, BookOpen, Table, FileType, Edit } from "lucide-react";
+import { Label } from "@radix-ui/react-label";
+
+function DetailRow({ k, v }: { k: string; v: string }) {
+  return (
+    <div className="grid grid-cols-3 px-4 py-2.5 text-[13px] bg-card">
+      <div className="text-muted-foreground">{k}</div>
+      <div className="col-span-2 text-foreground">{v}</div>
+    </div>
+  );
+}
 
 function classifyFile(name: string): "structured" | "unstructured" | "unknown" {
   const STRUCTURED = [".csv", ".tsv", ".xlsx", ".xls", ".json", ".jsonl", ".parquet"];
@@ -102,35 +112,52 @@ export default function AgentManagePage() {
 
   return (
     <AppShell>
-      <Topbar
-        title={agent.name}
-        subtitle={t("subtitle")}
-        right={
+      <Topbar title={agent.name} subtitle={t("subtitle")} />
+
+      <div className="px-6 py-7 max-w-3xl mx-auto">
+        <header className="mb-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-md bg-accent text-accent-foreground grid place-items-center font-serif text-[16px] shrink-0">
+              {agent.name[0]?.toUpperCase()}
+            </div>
+            <div>
+              <h1 className="font-serif text-2xl text-foreground tracking-tight flex items-center gap-2">
+                {agent.name}
+                <Badge variant={agent.is_published ? "success" : "muted"} className="text-[10px]">
+                  {agent.is_published ? "published" : "private"}
+                </Badge>
+              </h1>
+              <p className="text-[12px] text-muted-foreground mt-0.5">{agent.description || t("noDescription")}</p>
+            </div>
+          </div>
           <div className="flex gap-2">
+            <Button asChild size="sm" variant="outline">
+              <Link href={`/agents/${agentId}/edit` as any}>
+                <Edit className="size-4" /> {t("edit")}
+              </Link>
+            </Button>
             <Button asChild size="sm" variant="outline">
               <Link href={`/chat/${agentId}` as any}>
                 <MessageSquare className="size-4" /> {t("openChat")}
               </Link>
             </Button>
           </div>
-        }
-      />
-
-      <div className="px-6 py-7 max-w-3xl mx-auto">
-        <header className="mb-6 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-md bg-accent text-accent-foreground grid place-items-center font-serif text-[16px] shrink-0">
-            {agent.name[0]?.toUpperCase()}
-          </div>
-          <div>
-            <h1 className="font-serif text-2xl text-foreground tracking-tight flex items-center gap-2">
-              {agent.name}
-              <Badge variant={agent.is_published ? "success" : "muted"} className="text-[10px]">
-                {agent.is_published ? "published" : "private"}
-              </Badge>
-            </h1>
-            <p className="text-[12px] text-muted-foreground mt-0.5">{agent.description || t("noDescription")}</p>
-          </div>
         </header>
+
+        <Card className="mb-6">
+          <CardContent className="pt-5">
+            <Label className="mb-3 block text-[12px] font-semibold">{t("agentDetails")}</Label>
+            <div className="rounded-md border border-border divide-y divide-border overflow-hidden">
+              <DetailRow k="Name" v={agent.name} />
+              <DetailRow k="Description" v={agent.description || "—"} />
+              <DetailRow k="System Prompt" v={agent.system_prompt?.substring(0, 80) + (agent.system_prompt?.length > 80 ? "…" : "") || "—"} />
+              <DetailRow k="Model" v={agent.model_id?.toString() || "—"} />
+              <DetailRow k="Temperature" v={agent.temperature?.toFixed(2) || "—"} />
+              <DetailRow k="Max Tokens" v={agent.max_tokens?.toString() || "—"} />
+              <DetailRow k="Visibility" v={agent.is_published ? "Published" : "Private"} />
+            </div>
+          </CardContent>
+        </Card>
 
         {err && (
           <Alert variant="destructive" className="mb-4">

@@ -59,6 +59,7 @@ export const agents = {
   get: (id: number) => api(`/api/agents/${id}`),
   create: (data: any) => api("/api/agents", { method: "POST", body: JSON.stringify(data) }),
   update: (id: number, data: any) => api(`/api/agents/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  delete: (id: number) => api(`/api/agents/${id}`, { method: "DELETE" }),
   chat: async (data: { session_id?: number; agent_id: number; message: string; files?: File[] }) => {
     const fd = new FormData();
     fd.append("agent_id", String(data.agent_id));

@@ -1,6 +1,6 @@
 import json
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from sqlalchemy.orm import Session
 from sqlalchemy import select, delete
 from ..db.session import get_db
@@ -9,7 +9,9 @@ from ..schemas.agent import AgentCreate, AgentUpdate, AgentOut, ChatResponse, Ci
 from ..schemas.tool import AgentToolOut, AgentToolUpdate
 from ..schemas.knowledge import DocumentOut
 from ..services.chat import run_chat
-from ..services.attachments import save_chat_attachments, ATTACHMENT_ROOT
+from ..services.attachments import save_chat_attachments
+from ..services import storage
+from ..core.config import get_settings
 from ..services.audit import log_action
 from ..services.acl import user_has_permission
 from .deps import get_current_user
@@ -153,10 +155,18 @@ def download_chat_attachment(
     match = next((a for a in items if a.get("name") == filename), None)
     if not match:
         raise HTTPException(404)
-    path = match.get("path", "")
-    if not path or not path.startswith(str(ATTACHMENT_ROOT)):
+    key = match.get("path", "")
+    if not key:
         raise HTTPException(404)
-    return FileResponse(path, filename=filename, media_type=match.get("mime") or "application/octet-stream")
+    bucket = get_settings().minio_bucket_attachments
+    try:
+        data = storage.get_object(bucket, key)
+    except Exception:
+        raise HTTPException(404)
+    media = match.get("mime") or "application/octet-stream"
+    return Response(content=data, media_type=media, headers={
+        "Content-Disposition": f'inline; filename="{filename}"'
+    })
 
 
 @router.get("/{agent_id}/tools", response_model=list[AgentToolOut])

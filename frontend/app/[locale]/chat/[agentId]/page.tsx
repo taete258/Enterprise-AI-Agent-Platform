@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { useRouter } from "@/i18n/routing";
 import { useTranslations } from "next-intl";
@@ -89,15 +89,49 @@ function tryExtractImageUrl(content: string): string | null {
   try {
     const data = JSON.parse(content);
     if (typeof data === "object" && data !== null) {
+      if (Array.isArray(data.images) && data.images.length > 0) {
+        const first = data.images[0];
+        if (typeof first === "string") return first;
+        if (first && typeof first === "object") {
+          const url = first.url || first.image_url || first.src;
+          if (typeof url === "string") return url;
+        }
+      }
       const url = data.image_url || data.image || data.url || data.src;
       if (typeof url === "string" && (url.startsWith("http") || url.startsWith("data:"))) {
         return url;
       }
     }
   } catch { }
-  const match = content.match(/(https?:\/\/[^\s"<>]+\.(?:png|jpg|jpeg|gif|webp))/i);
+  // Match a URL with .png/.jpg/etc. and an optional query string (presigned URLs)
+  const match = content.match(/(https?:\/\/[^\s"<>]+\.(?:png|jpg|jpeg|gif|webp)(?:\?[^\s"<>]*)?)/i);
   if (match) return match[1];
   return null;
+}
+
+function renderContentWithImages(content: string): ReactNode[] {
+  if (!content) return [];
+  const parts: ReactNode[] = [];
+  // Match markdown image: ![alt](url)  — url may contain `?` and `&`
+  const re = /!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/g;
+  let lastIndex = 0;
+  let m: RegExpExecArray | null;
+  let key = 0;
+  while ((m = re.exec(content)) !== null) {
+    if (m.index > lastIndex) {
+      parts.push(<span key={`t-${key++}`}>{content.slice(lastIndex, m.index)}</span>);
+    }
+    parts.push(
+      <a key={`i-${key++}`} href={m[2]} target="_blank" rel="noopener noreferrer">
+        <img src={m[2]} alt={m[1] || "image"} className="rounded-md border border-border max-w-full max-h-[480px] my-2" />
+      </a>
+    );
+    lastIndex = m.index + m[0].length;
+  }
+  if (lastIndex < content.length) {
+    parts.push(<span key={`t-${key++}`}>{content.slice(lastIndex)}</span>);
+  }
+  return parts;
 }
 
 export default function ChatPage() {
@@ -1018,7 +1052,7 @@ function Bubble({ msg }: { msg: Msg }) {
             ${isUser
               ? "bg-primary text-primary-foreground rounded-2xl rounded-tr-none ml-auto text-left"
               : "bg-card text-foreground border border-border/80 rounded-2xl rounded-tl-none mr-auto text-left"}`}>
-            {msg.content}
+            {isUser ? msg.content : renderContentWithImages(msg.content)}
           </div>
         )}
         {parsedTools && parsedTools.length > 0 && (

@@ -101,13 +101,36 @@ def _init_db() -> None:
                 is_system=False
             ))
             db.commit()
+
+        # Seed image generation tool if missing
+        if not db.query(models.Tool).filter_by(key="generate_image").first():
+            db.add(models.Tool(
+                name="Generate Image",
+                key="generate_image",
+                description="Generate an image from a text prompt. Returns a URL to the saved image stored in object storage.",
+                type="system",
+                url="openrouter",
+                headers='{"model": "google/gemini-2.5-flash-image"}',
+                schema_json='{"type": "object", "properties": {"prompt": {"type": "string", "description": "Detailed description of the image to generate"}, "size": {"type": "string", "description": "Image size: 1024x1024, 1024x1536, or 1536x1024"}}, "required": ["prompt"]}',
+                is_system=True
+            ))
+            db.commit()
     finally:
         db.close()
+
+
+def _init_storage() -> None:
+    from .services import storage as storage_svc
+    try:
+        storage_svc.ensure_buckets()
+    except Exception as e:
+        print(f"Warning: MinIO ensure_buckets failed: {e}")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     _init_db()
+    _init_storage()
     yield
 
 

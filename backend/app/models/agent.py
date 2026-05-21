@@ -23,6 +23,8 @@ class Agent(Base):
 
     tools: Mapped[list["AgentTool"]] = relationship(back_populates="agent", cascade="all, delete-orphan")
     knowledge: Mapped[list["AgentKnowledge"]] = relationship(back_populates="agent", cascade="all, delete-orphan")
+    usage_records: Mapped[list["UsageRecord"]] = relationship(cascade="all, delete-orphan")
+    sessions: Mapped[list["ChatSession"]] = relationship(cascade="all, delete-orphan")
 
 
 class AgentTool(Base):

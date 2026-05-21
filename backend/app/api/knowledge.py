@@ -1,5 +1,4 @@
 import hashlib
-import os
 from pathlib import Path
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
@@ -12,21 +11,20 @@ from ..services.filetype import classify
 from ..services.embeddings import embed_texts
 from ..services.graph_extraction import extract_and_store_graph
 from ..services.audit import log_action
+from ..services import storage
+from ..core.config import get_settings
 from .deps import get_current_user
 
 router = APIRouter(prefix="/api/knowledge", tags=["knowledge"])
 
-STORAGE_ROOT = Path(os.environ.get("DOC_STORAGE", "/app/storage"))
-STORAGE_ROOT.mkdir(parents=True, exist_ok=True)
 
-
-def _store(content_hash: str, data: bytes, suffix: str) -> Path:
-    sub = STORAGE_ROOT / content_hash[:2]
-    sub.mkdir(parents=True, exist_ok=True)
-    path = sub / f"{content_hash}{suffix}"
-    if not path.exists():
-        path.write_bytes(data)
-    return path
+def _store(content_hash: str, data: bytes, suffix: str, content_type: str) -> str:
+    """Upload to MinIO; returns the object key."""
+    key = f"{content_hash[:2]}/{content_hash}{suffix}"
+    bucket = get_settings().minio_bucket_docs
+    if not storage.object_exists(bucket, key):
+        storage.put_object(bucket, key, data, content_type=content_type or "application/octet-stream")
+    return key
 
 
 @router.get("", response_model=list[DocumentOut])
@@ -60,11 +58,11 @@ async def upload(
     )
     db.add(doc); db.flush()
 
-    storage_path = _store(content_hash, data, suffix)
+    storage_key = _store(content_hash, data, suffix, file.content_type or "")
     version = DocumentVersion(
         document_id=doc.id,
         version=1,
-        storage_path=str(storage_path),
+        storage_path=storage_key,
         mime_type=file.content_type or "",
         size_bytes=len(data),
     )
