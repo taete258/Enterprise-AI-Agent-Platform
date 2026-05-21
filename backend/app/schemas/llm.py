@@ -40,6 +40,16 @@ class ModelCreate(BaseModel):
     input_cost_per_1k: float = 0.0
     output_cost_per_1k: float = 0.0
     supports_vision: bool = False
+    supports_image_generation: bool = False
+
+
+class ModelUpdate(BaseModel):
+    display_name: str | None = None
+    context_window: int | None = None
+    input_cost_per_1k: float | None = None
+    output_cost_per_1k: float | None = None
+    supports_vision: bool | None = None
+    supports_image_generation: bool | None = None
 
 
 class ModelOut(BaseModel):
@@ -51,6 +61,7 @@ class ModelOut(BaseModel):
     input_cost_per_1k: float
     output_cost_per_1k: float
     supports_vision: bool
+    supports_image_generation: bool
     is_active: bool
 
     class Config:

@@ -56,6 +56,11 @@ def _init_db() -> None:
         except Exception as e:
             print(f"Warning: Could not add group_id column: {e}")
             pass
+        try:
+            conn.execute(text("ALTER TABLE llm_models ADD COLUMN supports_image_generation BOOLEAN DEFAULT FALSE"))
+            conn.commit()
+        except Exception:
+            pass
 
     # Seed first superuser if none exists
     db = SessionLocal()

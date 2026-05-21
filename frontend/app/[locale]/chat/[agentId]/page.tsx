@@ -109,8 +109,52 @@ function tryExtractImageUrl(content: string): string | null {
   return null;
 }
 
-function renderContentWithImages(content: string): ReactNode[] {
+function parseImageGenerationJson(content: string): { model?: string; prompt?: string; images: Array<{ url: string }> } | null {
+  try {
+    const data = JSON.parse(content);
+    if (data.images && Array.isArray(data.images)) {
+      return data;
+    }
+  } catch { }
+
+  // Try to extract JSON from code blocks or other text
+  try {
+    const jsonMatch = content.match(/\{[\s\S]*"images"[\s\S]*\}/);
+    if (jsonMatch) {
+      const data = JSON.parse(jsonMatch[0]);
+      if (data.images && Array.isArray(data.images)) {
+        return data;
+      }
+    }
+  } catch { }
+
+  return null;
+}
+
+function renderContentWithImages(content: string, modelName: string | null = null): ReactNode[] {
   if (!content) return [];
+
+  // Check if this is an image generation response
+  const imgGenData = parseImageGenerationJson(content);
+  if (imgGenData && imgGenData.images.length > 0) {
+    const parts: ReactNode[] = [];
+    imgGenData.images.forEach((img, idx) => {
+      if (img.url) {
+        parts.push(
+          <div key={`img-gen-${idx}`} className="flex flex-col gap-1">
+            <a href={img.url} target="_blank" rel="noopener noreferrer">
+              <img src={img.url} alt={`Generated image ${idx + 1}`} className="rounded-md border border-border max-w-full max-h-[480px]" />
+            </a>
+            {(imgGenData.model || modelName) && (
+              <span className="text-[11px] text-muted-foreground font-mono">Model: {imgGenData.model || modelName}</span>
+            )}
+          </div>
+        );
+      }
+    });
+    return parts;
+  }
+
   const parts: ReactNode[] = [];
   // Match markdown image: ![alt](url)  — url may contain `?` and `&`
   const re = /!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/g;
@@ -121,10 +165,17 @@ function renderContentWithImages(content: string): ReactNode[] {
     if (m.index > lastIndex) {
       parts.push(<span key={`t-${key++}`}>{content.slice(lastIndex, m.index)}</span>);
     }
+    const imgAlt = m[1] || "image";
+    const imgUrl = m[2];
     parts.push(
-      <a key={`i-${key++}`} href={m[2]} target="_blank" rel="noopener noreferrer">
-        <img src={m[2]} alt={m[1] || "image"} className="rounded-md border border-border max-w-full max-h-[480px] my-2" />
-      </a>
+      <div key={`img-${key++}`} className="flex flex-col gap-1">
+        <a href={imgUrl} target="_blank" rel="noopener noreferrer">
+          <img src={imgUrl} alt={imgAlt} className="rounded-md border border-border max-w-full max-h-[480px] my-2" />
+        </a>
+        {modelName && (
+          <span className="text-[11px] text-muted-foreground font-mono">Model: {modelName}</span>
+        )}
+      </div>
     );
     lastIndex = m.index + m[0].length;
   }
@@ -666,7 +717,7 @@ export default function ChatPage() {
                   <div className="divide-y divide-border/60">
                     {msgs.map((m, i) => (
                       <div key={i} className={`py-6 ${i === 0 ? "pt-0" : ""} ${i === msgs.length - 1 && !busy ? "pb-0" : ""}`}>
-                        <Bubble msg={m} />
+                        <Bubble msg={m} msgs={msgs} msgIndex={i} />
                       </div>
                     ))}
                     {busy && (
@@ -997,26 +1048,38 @@ function Welcome({ name }: { name?: string }) {
   );
 }
 
-function Bubble({ msg }: { msg: Msg }) {
+function Bubble({ msg, msgs = [], msgIndex = -1 }: { msg: Msg; msgs?: Msg[]; msgIndex?: number }) {
   const t = useTranslations("ChatPage");
   const isUser = msg.role === "user";
   const isTool = msg.role === "tool";
 
+  // Helper to get model name from preceding tool message
+  const getModelNameFromPrecedingTool = (): string | null => {
+    if (msgIndex <= 0) return null;
+    for (let i = msgIndex - 1; i >= 0; i--) {
+      if (msgs[i].role === "tool") {
+        try {
+          const imgGenData = parseImageGenerationJson(msgs[i].content);
+          if (imgGenData?.model) {
+            return imgGenData.model;
+          }
+        } catch { }
+      }
+    }
+    return null;
+  };
+
   if (isTool) {
-    const imageUrl = tryExtractImageUrl(msg.content);
     return (
       <div className="flex gap-4 items-center pl-11 py-1">
         <div className="w-5 h-5 rounded bg-muted border border-border flex items-center justify-center text-[10px] text-muted-foreground shrink-0 font-mono">
           T
         </div>
-        <details className="flex-1 min-w-0 group" open={!!imageUrl}>
+        <details className="flex-1 min-w-0 group" open>
           <summary className="text-[11.5px] font-medium text-muted-foreground cursor-pointer hover:underline select-none">
             {t("toolOutput")} (ID: {msg.tool_call_id?.slice(0, 8) || "call"})
           </summary>
-          <div className="mt-1.5 space-y-2">
-            {imageUrl && (
-              <img src={imageUrl} alt="Tool output" className="rounded-md border border-border max-w-[320px] max-h-[320px]" />
-            )}
+          <div className="mt-1.5">
             <pre className="p-3 rounded-md bg-muted border border-border text-[11px] font-mono text-muted-foreground overflow-auto max-h-40 whitespace-pre-wrap">
               {msg.content}
             </pre>
@@ -1052,7 +1115,7 @@ function Bubble({ msg }: { msg: Msg }) {
             ${isUser
               ? "bg-primary text-primary-foreground rounded-2xl rounded-tr-none ml-auto text-left"
               : "bg-card text-foreground border border-border/80 rounded-2xl rounded-tl-none mr-auto text-left"}`}>
-            {isUser ? msg.content : renderContentWithImages(msg.content)}
+            {isUser ? msg.content : renderContentWithImages(msg.content, !isUser ? getModelNameFromPrecedingTool() : null)}
           </div>
         )}
         {parsedTools && parsedTools.length > 0 && (

@@ -29,6 +29,7 @@ class LLMModel(Base):
     input_cost_per_1k: Mapped[float] = mapped_column(Float, default=0.0)
     output_cost_per_1k: Mapped[float] = mapped_column(Float, default=0.0)
     supports_vision: Mapped[bool] = mapped_column(Boolean, default=False)
+    supports_image_generation: Mapped[bool] = mapped_column(Boolean, default=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
     provider: Mapped[LLMProvider] = relationship(back_populates="models")

@@ -4,7 +4,7 @@ from sqlalchemy import select
 from ..db.session import get_db
 from ..core.security import encrypt_secret
 from ..models import LLMProvider, LLMModel
-from ..schemas.llm import ProviderCreate, ProviderUpdate, ProviderTestConfig, ProviderOut, ModelCreate, ModelOut
+from ..schemas.llm import ProviderCreate, ProviderUpdate, ProviderTestConfig, ProviderOut, ModelCreate, ModelUpdate, ModelOut
 from ..providers import get_client
 from ..providers.openai_client import OpenAIClient
 from ..providers.anthropic_client import AnthropicClient
@@ -111,6 +111,21 @@ def list_models(db: Session = Depends(get_db)):
 def create_model(payload: ModelCreate, db: Session = Depends(get_db), _=Depends(require_superuser)):
     m = LLMModel(**payload.model_dump())
     db.add(m); db.commit(); db.refresh(m)
+    return m
+
+
+@router.patch("/models/{model_id}", response_model=ModelOut)
+def update_model(
+    model_id: int, payload: ModelUpdate,
+    db: Session = Depends(get_db), _=Depends(require_superuser),
+):
+    m = db.get(LLMModel, model_id)
+    if not m:
+        raise HTTPException(404, "Model not found")
+    data = payload.model_dump(exclude_unset=True)
+    for k, v in data.items():
+        setattr(m, k, v)
+    db.commit(); db.refresh(m)
     return m
 
 

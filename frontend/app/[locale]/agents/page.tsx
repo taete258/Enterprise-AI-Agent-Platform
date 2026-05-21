@@ -107,9 +107,10 @@ function AgentCard({ agent, onDelete }: { agent: any; onDelete: (id: number) => 
         <p className="text-[13px] text-muted-foreground mt-1 line-clamp-2 min-h-[2.4rem]">
           {agent.description || t("noDescription")}
         </p>
-        <div className="mt-4 pt-3 border-t border-border flex items-center justify-between">
-          <span className="text-[10.5px] text-muted-foreground/80 font-mono">{t("temperature")} {agent.temperature.toFixed(2)} · {t("maxTokens")} {agent.max_tokens}</span>
-          <div className="flex items-center gap-1">
+        <div className="mt-4 pt-3 border-t border-border space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[10.5px] text-muted-foreground/80 font-mono">{t("temperature")} {agent.temperature.toFixed(2)} · {t("maxTokens")} {agent.max_tokens}</span>
+            <div className="flex items-center gap-1">
             <Link href={`/agents/${agent.id}` as any} className="p-1 text-muted-foreground hover:text-foreground transition-colors hover:bg-accent rounded" title={t("manage")}>
               <Settings className="size-3.5" />
             </Link>
@@ -123,6 +124,18 @@ function AgentCard({ agent, onDelete }: { agent: any; onDelete: (id: number) => 
             >
               <Trash2 className="size-3.5" />
             </button>
+          </div>
+          </div>
+          <div className="flex items-center justify-between text-[10px] text-muted-foreground/70 font-mono">
+            <span>
+              {agent.input_cost_per_1k > 0 || agent.output_cost_per_1k > 0 ? (
+                <>
+                  in: ${agent.input_cost_per_1k.toFixed(4)}/1k · out: ${agent.output_cost_per_1k.toFixed(4)}/1k
+                </>
+              ) : (
+                <span className="text-muted-foreground/50">No cost info</span>
+              )}
+            </span>
           </div>
         </div>
       </Card>

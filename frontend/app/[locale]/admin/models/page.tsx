@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SearchableSelect } from "@/components/ui/searchable-select";
-import { AlertCircle, Eye, Trash2 } from "lucide-react";
+import { AlertCircle, Eye, Trash2, Image, X, Edit2 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useTranslations } from "next-intl";
 
@@ -22,11 +22,21 @@ export default function ModelsPage() {
   const [loadingAvail, setLoadingAvail] = useState(false);
   const [availErr, setAvailErr] = useState("");
   const [manual, setManual] = useState(false);
+  const [editingModel, setEditingModel] = useState<any | null>(null);
   const [form, setForm] = useState({
     provider_id: 0, model_id: "", display_name: "",
-    context_window: 8192, input_cost_per_1k: 0, output_cost_per_1k: 0, supports_vision: false,
+    context_window: 8192, input_cost_per_1k: 0, output_cost_per_1k: 0, supports_vision: false, supports_image_generation: false,
+  });
+  const [editForm, setEditForm] = useState({
+    display_name: "",
+    context_window: 8192,
+    input_cost_per_1k: 0,
+    output_cost_per_1k: 0,
+    supports_vision: false,
+    supports_image_generation: false,
   });
   const [err, setErr] = useState("");
+  const [editErr, setEditErr] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
 
   async function load() {
@@ -45,13 +55,41 @@ export default function ModelsPage() {
     finally { setLoadingAvail(false); }
   }
 
-  async function submit(e: React.FormEvent) {
+  async function startEdit(model: any) {
+    setEditingModel(model);
+    setEditForm({
+      display_name: model.display_name,
+      context_window: model.context_window,
+      input_cost_per_1k: model.input_cost_per_1k,
+      output_cost_per_1k: model.output_cost_per_1k,
+      supports_vision: model.supports_vision,
+      supports_image_generation: model.supports_image_generation,
+    });
+    setEditErr("");
+  }
+
+  async function submitCreate(e: React.FormEvent) {
     e.preventDefault();
     try {
       await llm.createModel(form);
-      setForm({ ...form, model_id: "", display_name: "" });
+      setForm({
+        provider_id: 0, model_id: "", display_name: "",
+        context_window: 8192, input_cost_per_1k: 0, output_cost_per_1k: 0, supports_vision: false, supports_image_generation: false,
+      });
+      setAvailable([]);
+      setManual(false);
       load();
     } catch (e: any) { setErr(e.message); }
+  }
+
+  async function submitEdit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editingModel) return;
+    try {
+      await llm.updateModel(editingModel.id, editForm);
+      setEditingModel(null);
+      load();
+    } catch (e: any) { setEditErr(e.message); }
   }
 
   async function confirmDelete() {
@@ -73,7 +111,7 @@ export default function ModelsPage() {
 
         <Card className="mb-6">
           <CardContent className="pt-6">
-            <form onSubmit={submit} className="grid sm:grid-cols-2 gap-4">
+            <form onSubmit={submitCreate} className="grid sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>{t("provider")}</Label>
                 <Select value={String(form.provider_id)} onValueChange={(v) => pickProvider(Number(v))}>
@@ -141,19 +179,29 @@ export default function ModelsPage() {
                 </div>
               </div>
 
-              <label className="sm:col-span-2 flex items-center gap-2 text-[13px]">
-                <input type="checkbox" className="accent-primary w-4 h-4"
-                       checked={form.supports_vision}
-                       onChange={(e) => setForm({ ...form, supports_vision: e.target.checked })} />
-                {t("supportsVision")}
-              </label>
+              <div className="sm:col-span-2 space-y-2">
+                <label className="flex items-center gap-2 text-[13px]">
+                  <input type="checkbox" className="accent-primary w-4 h-4"
+                         checked={form.supports_vision}
+                         onChange={(e) => setForm({ ...form, supports_vision: e.target.checked })} />
+                  {t("supportsVision")}
+                </label>
+                <label className="flex items-center gap-2 text-[13px]">
+                  <input type="checkbox" className="accent-primary w-4 h-4"
+                         checked={form.supports_image_generation}
+                         onChange={(e) => setForm({ ...form, supports_image_generation: e.target.checked })} />
+                  Supports Image Generation
+                </label>
+              </div>
 
               {err && (
                 <Alert variant="destructive" className="sm:col-span-2">
                   <AlertCircle className="size-4" /><AlertDescription>{err}</AlertDescription>
                 </Alert>
               )}
-              <div className="sm:col-span-2"><Button>{t("addModel")}</Button></div>
+              <div className="sm:col-span-2">
+                <Button type="submit">{t("addModel")}</Button>
+              </div>
             </form>
           </CardContent>
         </Card>
@@ -162,7 +210,7 @@ export default function ModelsPage() {
           <table className="w-full text-[13px]">
             <thead>
               <tr className="bg-muted border-b border-border">
-                {[t("provider"), t("modelId"), t("displayName"), "in $/1k", "out $/1k", ""].map((h, i) => (
+                {[t("provider"), t("modelId"), t("displayName"), "in $/1k", "out $/1k", "Capabilities", ""].map((h, i) => (
                   <th key={i} className={`${i === 3 || i === 4 ? "text-right" : "text-left"} px-3 py-2.5 text-[10.5px] font-semibold uppercase tracking-wider text-muted-foreground`}>{h}</th>
                 ))}
               </tr>
@@ -177,9 +225,22 @@ export default function ModelsPage() {
                     <td className="px-3 py-2.5">{m.display_name || "—"}</td>
                     <td className="px-3 py-2.5 text-right font-mono">{m.input_cost_per_1k}</td>
                     <td className="px-3 py-2.5 text-right font-mono">{m.output_cost_per_1k}</td>
+                    <td className="px-3 py-2.5">
+                      <div className="flex items-center gap-2">
+                        {m.supports_vision && <Badge variant="success"><Eye className="size-3 mr-1" />vision</Badge>}
+                        {m.supports_image_generation && <Badge variant="secondary"><Image className="size-3 mr-1" />image</Badge>}
+                      </div>
+                    </td>
                     <td className="px-3 py-2.5 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        {m.supports_vision && <Badge variant="success"><Eye className="size-3 mr-1" />vision</Badge>}
+                        <button
+                          type="button"
+                          onClick={() => startEdit(m)}
+                          className="p-1.5 text-muted-foreground hover:text-primary rounded-md hover:bg-accent transition-colors cursor-pointer"
+                          title="Edit"
+                        >
+                          <Edit2 className="size-3.5" />
+                        </button>
                         <button
                           type="button"
                           onClick={() => setDeleteTarget({ id: m.id, name: m.display_name || m.model_id })}
@@ -194,12 +255,77 @@ export default function ModelsPage() {
                 );
               })}
               {models.length === 0 && (
-                <tr><td colSpan={6} className="text-center text-muted-foreground py-6">{t("noModels")}</td></tr>
+                <tr><td colSpan={7} className="text-center text-muted-foreground py-6">{t("noModels")}</td></tr>
               )}
             </tbody>
           </table>
         </Card>
       </div>
+
+      <Dialog open={!!editingModel} onOpenChange={(open) => !open && setEditingModel(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Model</DialogTitle>
+            <DialogDescription>
+              {editingModel?.model_id}
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={submitEdit} className="space-y-4">
+            <div className="space-y-1.5">
+              <Label>{t("displayName")}</Label>
+              <Input placeholder="GPT-4o Mini" value={editForm.display_name}
+                     onChange={(e) => setEditForm({ ...editForm, display_name: e.target.value })} />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>{t("contextWindow")}</Label>
+              <Input type="number" value={editForm.context_window}
+                     onChange={(e) => setEditForm({ ...editForm, context_window: Number(e.target.value) })} />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>{t("inputCost")}</Label>
+                <Input type="number" step="0.0001" value={editForm.input_cost_per_1k}
+                       onChange={(e) => setEditForm({ ...editForm, input_cost_per_1k: Number(e.target.value) })} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>{t("outputCost")}</Label>
+                <Input type="number" step="0.0001" value={editForm.output_cost_per_1k}
+                       onChange={(e) => setEditForm({ ...editForm, output_cost_per_1k: Number(e.target.value) })} />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-[13px]">
+                <input type="checkbox" className="accent-primary w-4 h-4"
+                       checked={editForm.supports_vision}
+                       onChange={(e) => setEditForm({ ...editForm, supports_vision: e.target.checked })} />
+                {t("supportsVision")}
+              </label>
+              <label className="flex items-center gap-2 text-[13px]">
+                <input type="checkbox" className="accent-primary w-4 h-4"
+                       checked={editForm.supports_image_generation}
+                       onChange={(e) => setEditForm({ ...editForm, supports_image_generation: e.target.checked })} />
+                Supports Image Generation
+              </label>
+            </div>
+
+            {editErr && (
+              <Alert variant="destructive">
+                <AlertCircle className="size-4" /><AlertDescription>{editErr}</AlertDescription>
+              </Alert>
+            )}
+
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button variant="outline" type="button" onClick={() => setEditingModel(null)}>
+                {t("cancel")}
+              </Button>
+              <Button type="submit">Save Changes</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <DialogContent>

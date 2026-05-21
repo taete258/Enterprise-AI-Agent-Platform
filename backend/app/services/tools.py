@@ -4,10 +4,35 @@ import math
 import httpx
 from sqlalchemy.orm import Session
 from sqlalchemy import select
-from ..models import Tool
+from ..models import Tool, LLMModel
 from . import storage
 from ..core.config import get_settings
 from ..providers.image_client import get_image_client
+from ..db.session import SessionLocal
+
+
+def _get_image_generation_model() -> tuple[str, dict]:
+    """
+    Query for a model with supports_image_generation=True.
+    Returns (provider_kind, model_config_dict) where model_config_dict has model_id and optionally model name.
+    Falls back to default if none found.
+    """
+    db = SessionLocal()
+    try:
+        # Query for first active model that supports image generation
+        model = db.scalar(
+            select(LLMModel)
+            .where(LLMModel.supports_image_generation == True, LLMModel.is_active == True)
+        )
+        if model and model.provider:
+            return model.provider.kind, {"model": model.model_id}
+    except Exception:
+        pass
+    finally:
+        db.close()
+
+    # Fallback to default
+    return "openrouter", {"model": "google/gemini-2.5-flash-image-preview"}
 
 
 def safe_eval(expr: str) -> str:
@@ -42,12 +67,12 @@ def _run_generate_image(tool: Tool | None, args: dict, agent_config_str: str) ->
         n = 1
     n = max(1, min(n, 4))
 
-    # Provider + opts from tool row, then agent overrides
-    provider = (tool.url if tool and tool.url else "openai")
-    try:
-        opts = json.loads(tool.headers) if tool and tool.headers else {}
-    except Exception:
-        opts = {}
+    # Priority: agent config > tool config > database query > hardcoded fallback
+    provider = None
+    opts = {}
+    model_used = None
+
+    # Check agent config first
     if agent_config_str:
         try:
             agent_cfg = json.loads(agent_config_str) or {}
@@ -57,6 +82,33 @@ def _run_generate_image(tool: Tool | None, args: dict, agent_config_str: str) ->
                 provider = agent_cfg["provider"]
         except Exception:
             pass
+
+    # Check tool config if no agent override
+    if not provider and tool:
+        try:
+            provider = tool.url
+            if tool.headers:
+                tool_opts = json.loads(tool.headers)
+                opts.update(tool_opts)
+        except Exception:
+            pass
+
+    # Query database for models with supports_image_generation if no explicit config
+    if not provider or not opts.get("model"):
+        db_provider, db_opts = _get_image_generation_model()
+        if not provider:
+            provider = db_provider
+        if not opts.get("model"):
+            opts.update(db_opts)
+            model_used = db_opts.get("model")
+
+    # Final fallback
+    if not provider:
+        provider = "openrouter"
+    if not opts.get("model"):
+        opts["model"] = "google/gemini-2.5-flash-image-preview"
+
+    model_used = model_used or opts.get("model", "unknown")
 
     try:
         client = get_image_client(provider, opts)
@@ -75,7 +127,7 @@ def _run_generate_image(tool: Tool | None, args: dict, agent_config_str: str) ->
         if not storage.object_exists(bucket, key):
             storage.put_object(bucket, key, img_bytes, content_type="image/png")
         out.append({"url": storage.presigned_url(bucket, key), "key": key})
-    return json.dumps({"prompt": prompt, "size": size, "images": out})
+    return json.dumps({"prompt": prompt, "size": size, "model": model_used, "images": out})
 
 
 def execute_tool(db: Session, tool_key: str, args: dict, agent_config_str: str) -> str:

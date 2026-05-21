@@ -34,6 +34,8 @@ class AgentOut(BaseModel):
     style_config: str
     owner_id: int
     is_published: bool
+    input_cost_per_1k: float = 0.0
+    output_cost_per_1k: float = 0.0
 
     class Config:
         from_attributes = True

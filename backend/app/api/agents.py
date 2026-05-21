@@ -4,7 +4,7 @@ from fastapi.responses import FileResponse, Response
 from sqlalchemy.orm import Session
 from sqlalchemy import select, delete
 from ..db.session import get_db
-from ..models import Agent, ChatSession, Message, User, AgentTool, Tool, AgentKnowledge, Document
+from ..models import Agent, ChatSession, Message, User, AgentTool, Tool, AgentKnowledge, Document, LLMModel
 from ..schemas.agent import AgentCreate, AgentUpdate, AgentOut, ChatResponse, CitationOut
 from ..schemas.tool import AgentToolOut, AgentToolUpdate
 from ..schemas.knowledge import DocumentOut
@@ -27,10 +27,29 @@ def _visible(db: Session, user: User, agent: Agent, required: str = "use") -> bo
     return user_has_permission(db, user, "agent", agent.id, required)
 
 
+def _agent_with_model_costs(db: Session, agent: Agent) -> AgentOut:
+    """Convert agent to AgentOut with model cost data included."""
+    model = db.get(LLMModel, agent.model_id)
+    return AgentOut(
+        id=agent.id,
+        name=agent.name,
+        description=agent.description,
+        system_prompt=agent.system_prompt,
+        model_id=agent.model_id,
+        temperature=agent.temperature,
+        max_tokens=agent.max_tokens,
+        style_config=agent.style_config,
+        owner_id=agent.owner_id,
+        is_published=agent.is_published,
+        input_cost_per_1k=model.input_cost_per_1k if model else 0.0,
+        output_cost_per_1k=model.output_cost_per_1k if model else 0.0,
+    )
+
+
 @router.get("", response_model=list[AgentOut])
 def list_agents(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     rows = db.scalars(select(Agent)).all()
-    return [a for a in rows if _visible(db, user, a, "use")]
+    return [_agent_with_model_costs(db, a) for a in rows if _visible(db, user, a, "use")]
 
 
 @router.post("", response_model=AgentOut)
@@ -41,7 +60,7 @@ def create_agent(
     db.add(agent); db.flush()
     log_action(db, user_id=user.id, action="agent.create", resource_type="agent", resource_id=str(agent.id))
     db.commit(); db.refresh(agent)
-    return agent
+    return _agent_with_model_costs(db, agent)
 
 
 @router.get("/{agent_id}", response_model=AgentOut)
@@ -49,7 +68,7 @@ def get_agent(agent_id: int, db: Session = Depends(get_db), user: User = Depends
     agent = db.get(Agent, agent_id)
     if not agent or not _visible(db, user, agent, "view"):
         raise HTTPException(404)
-    return agent
+    return _agent_with_model_costs(db, agent)
 
 
 @router.patch("/{agent_id}", response_model=AgentOut)
@@ -66,7 +85,7 @@ def update_agent(
         setattr(agent, k, v)
     log_action(db, user_id=user.id, action="agent.update", resource_type="agent", resource_id=str(agent.id))
     db.commit(); db.refresh(agent)
-    return agent
+    return _agent_with_model_costs(db, agent)
 
 
 @router.delete("/{agent_id}")

@@ -111,6 +111,8 @@ export const llm = {
       `/api/llm/providers/${id}/available-models`
     ),
   createModel: (data: any) => api("/api/llm/models", { method: "POST", body: JSON.stringify(data) }),
+  updateModel: (id: number, data: any) =>
+    api(`/api/llm/models/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   deleteModel: (id: number) => api(`/api/llm/models/${id}`, { method: "DELETE" }),
 };
 
