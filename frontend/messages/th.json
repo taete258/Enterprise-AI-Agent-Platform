@@ -278,7 +278,17 @@
     "password": "รหัสผ่าน",
     "addUser": "+ เพิ่มผู้ใช้",
     "id": "ID",
-    "status": "สถานะ"
+    "status": "สถานะ",
+    "actions": "การกระทำ",
+    "edit": "แก้ไข",
+    "delete": "ลบ",
+    "editUser": "แก้ไขผู้ใช้",
+    "deleteConfirmTitle": "ลบผู้ใช้",
+    "deleteConfirmDescription": "คุณแน่ใจหรือว่าต้องการลบ {email}? การกระทำนี้ไม่สามารถยกเลิกได้",
+    "save": "บันทึก",
+    "cancel": "ยกเลิก",
+    "confirmDelete": "ลบ",
+    "optional": "ตัวเลือก"
   },
   "AuditPage": {
     "title": "Audit log",

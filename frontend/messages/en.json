@@ -278,7 +278,17 @@
     "password": "Password",
     "addUser": "+ Add User",
     "id": "ID",
-    "status": "Status"
+    "status": "Status",
+    "actions": "Actions",
+    "edit": "Edit",
+    "delete": "Delete",
+    "editUser": "Edit User",
+    "deleteConfirmTitle": "Delete User",
+    "deleteConfirmDescription": "Are you sure you want to delete {email}? This action cannot be undone.",
+    "save": "Save",
+    "cancel": "Cancel",
+    "confirmDelete": "Delete",
+    "optional": "optional"
   },
   "AuditPage": {
     "title": "Audit log",

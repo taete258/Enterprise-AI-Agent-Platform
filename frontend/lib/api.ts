@@ -147,6 +147,8 @@ export const admin = {
   users: () => api<any[]>("/api/admin/users"),
   createUser: (data: { email: string; full_name: string; password: string }) =>
     api("/api/auth/users", { method: "POST", body: JSON.stringify(data) }),
+  updateUser: (id: number, data: any) => api(`/api/auth/users/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  deleteUser: (id: number) => api(`/api/auth/users/${id}`, { method: "DELETE" }),
   listTools: () => api<any[]>("/api/admin/tools"),
   createTool: (data: any) => api("/api/admin/tools", { method: "POST", body: JSON.stringify(data) }),
   updateTool: (id: number, data: any) => api(`/api/admin/tools/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
