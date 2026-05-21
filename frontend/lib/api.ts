@@ -137,8 +137,18 @@ export const knowledge = {
 };
 
 export const sessions = {
-  list: () => api<any[]>("/api/sessions"),
+  list: (includeArchived = false) =>
+    api<any[]>(`/api/sessions${includeArchived ? "?include_archived=true" : ""}`),
   messages: (id: number) => api<any[]>(`/api/sessions/${id}/messages`),
+  update: (id: number, data: { title?: string; is_pinned?: boolean; is_archived?: boolean; group_id?: number | null }) =>
+    api(`/api/sessions/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  listGroups: () => api<any[]>("/api/sessions/groups"),
+  createGroup: (name: string) =>
+    api("/api/sessions/groups", { method: "POST", body: JSON.stringify({ name }) }),
+  updateGroup: (id: number, data: { name?: string; delete?: boolean }) =>
+    api(`/api/sessions/groups/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  deleteGroup: (id: number) =>
+    api(`/api/sessions/groups/${id}`, { method: "DELETE" }),
 };
 
 export const admin = {

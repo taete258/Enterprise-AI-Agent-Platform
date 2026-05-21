@@ -16,10 +16,13 @@ def _init_db() -> None:
     with engine.connect() as conn:
         conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
         conn.commit()
+
+    # Create all tables from models
     Base.metadata.create_all(bind=engine)
-    
-    # Check and add tool_calls and tool_call_id columns to messages if they don't exist
+
+    # Add missing columns to existing tables
     with engine.connect() as conn:
+        # Messages table migrations
         try:
             conn.execute(text("ALTER TABLE messages ADD COLUMN tool_calls TEXT"))
             conn.commit()
@@ -29,6 +32,29 @@ def _init_db() -> None:
             conn.execute(text("ALTER TABLE messages ADD COLUMN tool_call_id VARCHAR(128)"))
             conn.commit()
         except Exception:
+            pass
+
+        # ChatSession table migrations
+        try:
+            conn.execute(text("ALTER TABLE chat_sessions ADD COLUMN is_pinned BOOLEAN DEFAULT FALSE"))
+            conn.commit()
+        except Exception:
+            pass
+        try:
+            conn.execute(text("ALTER TABLE chat_sessions ADD COLUMN is_archived BOOLEAN DEFAULT FALSE"))
+            conn.commit()
+        except Exception:
+            pass
+        try:
+            conn.execute(text("ALTER TABLE chat_sessions ADD COLUMN updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()"))
+            conn.commit()
+        except Exception:
+            pass
+        try:
+            conn.execute(text("ALTER TABLE chat_sessions ADD COLUMN group_id INTEGER REFERENCES session_groups(id) ON DELETE SET NULL"))
+            conn.commit()
+        except Exception as e:
+            print(f"Warning: Could not add group_id column: {e}")
             pass
 
     # Seed first superuser if none exists

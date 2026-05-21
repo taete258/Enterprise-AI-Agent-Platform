@@ -1,7 +1,17 @@
 from datetime import datetime
-from sqlalchemy import String, ForeignKey, DateTime, Text, Integer
+from sqlalchemy import String, ForeignKey, DateTime, Text, Integer, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from ..db.session import Base
+
+
+class SessionGroup(Base):
+    __tablename__ = "session_groups"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    name: Mapped[str] = mapped_column(String(255))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.utcnow())
+
+    sessions: Mapped[list["ChatSession"]] = relationship(back_populates="group", cascade="all, delete-orphan")
 
 
 class ChatSession(Base):
@@ -9,10 +19,15 @@ class ChatSession(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     agent_id: Mapped[int] = mapped_column(ForeignKey("agents.id", ondelete="CASCADE"))
+    group_id: Mapped[int | None] = mapped_column(ForeignKey("session_groups.id", ondelete="SET NULL"), nullable=True)
     title: Mapped[str] = mapped_column(String(255), default="New chat")
+    is_pinned: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_archived: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.utcnow())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.utcnow())
 
     messages: Mapped[list["Message"]] = relationship(back_populates="session", cascade="all, delete-orphan", order_by="Message.id")
+    group: Mapped["SessionGroup | None"] = relationship(back_populates="sessions")
 
 
 class Message(Base):

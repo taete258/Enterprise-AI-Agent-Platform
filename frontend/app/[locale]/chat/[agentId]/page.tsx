@@ -10,8 +10,9 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Send, Settings, BookOpen, ChevronRight, Paperclip, X, FileText } from "lucide-react";
+import { Send, Settings, BookOpen, ChevronRight, Paperclip, X, FileText, ChevronLeft, Pin, Edit2, Trash2, MoreVertical, Link2Off } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 
 type Attachment = { name: string; size?: number; mime?: string; localUrl?: string };
 
@@ -19,6 +20,22 @@ function isImageAttachment(a: Attachment): boolean {
   if (a.mime && a.mime.startsWith("image/")) return true;
   const ext = (a.name || "").toLowerCase().split(".").pop() || "";
   return ["png", "jpg", "jpeg", "gif", "webp"].includes(ext);
+}
+
+function getGroupBgColor(groupId: number): string {
+  const colors = [
+    "bg-red-50",
+    "bg-blue-50",
+    "bg-green-50",
+    "bg-yellow-50",
+    "bg-purple-50",
+    "bg-pink-50",
+    "bg-indigo-50",
+    "bg-cyan-50",
+    "bg-orange-50",
+    "bg-lime-50",
+  ];
+  return colors[groupId % colors.length];
 }
 type Msg = {
   id?: number;
@@ -77,7 +94,7 @@ function tryExtractImageUrl(content: string): string | null {
         return url;
       }
     }
-  } catch {}
+  } catch { }
   const match = content.match(/(https?:\/\/[^\s"<>]+\.(?:png|jpg|jpeg|gif|webp))/i);
   if (match) return match[1];
   return null;
@@ -105,14 +122,26 @@ export default function ChatPage() {
   const [modelErr, setModelErr] = useState("");
   const [allTools, setAllTools] = useState<any[]>([]);
   const [agentTools, setAgentTools] = useState<any[]>([]);
+  const [rightPanelOpen, setRightPanelOpen] = useState(true);
+  const [leftPanelOpen, setLeftPanelOpen] = useState(true);
+
+  const [groups, setGroups] = useState<any[]>([]);
+  const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
+  const [renameTarget, setRenameTarget] = useState<any | null>(null);
+  const [renameTitle, setRenameTitle] = useState("");
+  const [showNewGroupDialog, setShowNewGroupDialog] = useState(false);
+  const [newGroupName, setNewGroupName] = useState("");
+  const [actionError, setActionError] = useState("");
+  const [draggedSession, setDraggedSession] = useState<any | null>(null);
+  const [groupToDelete, setGroupToDelete] = useState<any | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => { agents.get(id).then(setAgent).catch(() => {}); }, [id]);
-  useEffect(() => { llm.models().then(setModels).catch(() => {}); }, []);
-  useEffect(() => { auth.me().then(setUser).catch(() => {}); }, []);
+  useEffect(() => { agents.get(id).then(setAgent).catch(() => { }); }, [id]);
+  useEffect(() => { llm.models().then(setModels).catch(() => { }); }, []);
+  useEffect(() => { auth.me().then(setUser).catch(() => { }); }, []);
 
   async function loadTools() {
     try {
@@ -120,7 +149,7 @@ export default function ChatPage() {
       setAllTools(all);
       const bound = await agents.listTools(id);
       setAgentTools(bound);
-    } catch (e) {}
+    } catch (e) { }
   }
   useEffect(() => { loadTools(); }, [id]);
 
@@ -157,17 +186,144 @@ export default function ChatPage() {
     }
   }
 
+  async function handleRenameSession() {
+    if (!renameTarget || !renameTitle.trim()) return;
+    try {
+      await sessions.update(renameTarget.id, { title: renameTitle });
+      setSessionsList((prev) =>
+        prev.map((s) => (s.id === renameTarget.id ? { ...s, title: renameTitle } : s))
+      );
+      setRenameTarget(null);
+    } catch (e: any) {
+      setActionError(e.message);
+    }
+  }
+
+  async function handleTogglePin(sessionId: number, pinned: boolean) {
+    try {
+      const session = sessionsList.find(s => s.id === sessionId);
+      const updateData: any = { is_pinned: pinned };
+      if (pinned && session?.group_id) {
+        updateData.group_id = null;
+      }
+      await sessions.update(sessionId, updateData);
+      setSessionsList((prev) =>
+        prev.map((s) => (s.id === sessionId ? { ...s, ...updateData } : s))
+      );
+    } catch (e: any) {
+      setActionError(e.message);
+    }
+  }
+
+  async function handleDeleteSession() {
+    if (!deleteTarget) return;
+    try {
+      await sessions.update(deleteTarget.id, { is_archived: true });
+      setSessionsList((prev) => prev.filter((s) => s.id !== deleteTarget.id));
+      if (sessionId === deleteTarget.id) {
+        const nextSession = sessionsList.find((s) => s.id !== deleteTarget.id);
+        if (nextSession) {
+          router.push(`/chat/${nextSession.agent_id}?session_id=${nextSession.id}` as any);
+        } else {
+          router.push(`/agents`);
+        }
+      }
+      setDeleteTarget(null);
+    } catch (e: any) {
+      setActionError(e.message);
+    }
+  }
+
+  async function createNewGroup() {
+    if (!newGroupName.trim()) return;
+    try {
+      const newGroup = await sessions.createGroup(newGroupName);
+      setGroups([...groups, newGroup]);
+      setNewGroupName("");
+      setShowNewGroupDialog(false);
+    } catch (e: any) {
+      setActionError(e.message);
+    }
+  }
+
+  function handleSessionDragStart(session: any) {
+    return (e: React.DragEvent) => {
+      setDraggedSession(session);
+      e.dataTransfer.effectAllowed = "move";
+    };
+  }
+
+  function handleGroupDrop(groupId: number) {
+    return (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!draggedSession) return;
+      sessions.update(draggedSession.id, { group_id: groupId }).then(() => {
+        setSessionsList((prev) =>
+          prev.map((s) =>
+            s.id === draggedSession.id ? { ...s, group_id: groupId } : s
+          )
+        );
+        setDraggedSession(null);
+      }).catch((err: any) => {
+        setActionError(err.message);
+      });
+    };
+  }
+
+  function handleUngroupDrop(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!draggedSession) return;
+    sessions.update(draggedSession.id, { group_id: null }).then(() => {
+      setSessionsList((prev) =>
+        prev.map((s) =>
+          s.id === draggedSession.id ? { ...s, group_id: null } : s
+        )
+      );
+      setDraggedSession(null);
+    }).catch((err: any) => {
+      setActionError(err.message);
+    });
+  }
+
+  async function handleDeleteGroup() {
+    if (!groupToDelete) return;
+    try {
+      await sessions.updateGroup(groupToDelete.id, { delete: true });
+      setGroups((prev) => prev.filter(g => g.id !== groupToDelete.id));
+      setSessionsList((prev) =>
+        prev.map((s) =>
+          s.group_id === groupToDelete.id ? { ...s, group_id: null } : s
+        )
+      );
+      setGroupToDelete(null);
+    } catch (e: any) {
+      setActionError(e.message);
+    }
+  }
+
   useEffect(() => {
     agents.list().then((rows) => {
       const map: Record<number, any> = {};
       rows.forEach((a) => (map[a.id] = a));
       setAgs(map);
-    }).catch(() => {});
+    }).catch(() => { });
   }, []);
 
   useEffect(() => {
-    sessions.list().then(setSessionsList).catch(() => {});
+    sessions.list().then(setSessionsList).catch(() => { });
   }, [sessionId]);
+
+  useEffect(() => {
+    sessions.listGroups().then(setGroups).catch(() => { });
+  }, []);
+
+  useEffect(() => {
+    if (renameTarget) {
+      setRenameTitle(renameTarget.title);
+    }
+  }, [renameTarget]);
 
   useEffect(() => {
     if (sessionIdQuery) {
@@ -182,7 +338,7 @@ export default function ChatPage() {
             tool_calls: m.tool_calls, tool_call_id: m.tool_call_id,
             attachments: parseAttachments(m.attachments),
           })));
-        }).catch(() => {});
+        }).catch(() => { });
     } else {
       const isNew = searchParams ? searchParams.get("new") === "true" : false;
       if (!isNew && sessionsList.length > 0) {
@@ -243,71 +399,208 @@ export default function ChatPage() {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
   }
 
-  const totalIn  = msgs.reduce((s, m) => s + (m.tokens_in  || 0), 0);
+  const totalIn = msgs.reduce((s, m) => s + (m.tokens_in || 0), 0);
   const totalOut = msgs.reduce((s, m) => s + (m.tokens_out || 0), 0);
 
   return (
     <AppShell
       rightPanel={
-        <Inspector
-          agent={agent}
-          totalIn={totalIn}
-          totalOut={totalOut}
-          msgCount={msgs.length}
-          models={models}
-          canEdit={canEdit}
-          modelBusy={modelBusy}
-          handleModelChange={handleModelChange}
-          modelErr={modelErr}
-          allTools={allTools}
-          agentTools={agentTools}
-          toggleTool={toggleTool}
-        />
+        rightPanelOpen ? (
+          <Inspector
+            agent={agent}
+            totalIn={totalIn}
+            totalOut={totalOut}
+            msgCount={msgs.length}
+            models={models}
+            canEdit={canEdit}
+            modelBusy={modelBusy}
+            handleModelChange={handleModelChange}
+            modelErr={modelErr}
+            allTools={allTools}
+            agentTools={agentTools}
+            toggleTool={toggleTool}
+          />
+        ) : undefined
       }
     >
-      <div className="flex h-full min-w-0 overflow-hidden">
+      <div className="flex h-full min-w-0 overflow-hidden relative">
         {/* Left pane: Chat History */}
-        <aside className="w-64 border-r border-border bg-sidebar/35 flex flex-col shrink-0 min-w-0">
-          <div className="p-4 border-b border-border flex items-center justify-between shrink-0">
-            <h2 className="font-serif text-[15px] font-semibold text-sidebar-foreground tracking-tight">{t("recentChats")}</h2>
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-[11px] h-7 px-2.5"
-              onClick={() => router.push(`/chat/${id}?new=true` as any)}
-            >
-              {t("newChat")}
-            </Button>
-          </div>
-          <div className="flex-1 overflow-y-auto p-2 space-y-1">
-            {sessionsList.length === 0 ? (
-              <p className="text-[11.5px] text-muted-foreground p-3 text-center">{t("noHistory")}</p>
-            ) : (
-              sessionsList.map((s) => {
-                const active = sessionId === s.id;
-                return (
-                  <button
-                    key={s.id}
-                    onClick={() => router.push(`/chat/${s.agent_id}?session_id=${s.id}` as any)}
-                    className={`w-full text-left px-3 py-2 rounded-md transition-colors flex flex-col gap-0.5 ${
-                      active
-                        ? "bg-accent text-accent-foreground font-medium"
-                        : "text-muted-foreground hover:bg-accent/40 hover:text-foreground"
-                    }`}
+        {leftPanelOpen && (
+          <aside className="w-64 border-r border-border bg-sidebar/35 flex flex-col shrink-0 min-w-0">
+            <div className="p-4 border-b border-border flex items-center justify-between shrink-0">
+              <h2 className="font-serif text-[15px] font-semibold text-sidebar-foreground tracking-tight">{t("recentChats")}</h2>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-[11px] h-7 px-2.5"
+                onClick={() => router.push(`/chat/${id}?new=true` as any)}
+              >
+                {t("newChat")}
+              </Button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-2 space-y-1">
+              {sessionsList.length === 0 ? (
+                <p className="text-[11.5px] text-muted-foreground p-3 text-center">{t("noHistory")}</p>
+              ) : (
+                <>
+                  {sessionsList.some((s) => s.is_pinned) && (
+                    <div>
+                      <div className="px-3 mt-3 mb-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+                        Pinned
+                      </div>
+                      <div>
+                        {sessionsList
+                          .filter((s) => s.is_pinned && !s.is_archived)
+                          .map((s, idx, arr) => (
+                            <div key={s.id} className={idx < arr.length - 1 ? "border-b border-border" : ""}>
+                              <SessionListItem
+                                session={s}
+                                agent={ags[s.agent_id]}
+                                isActive={sessionId === s.id}
+                                onNavigate={() => router.push(`/chat/${s.agent_id}?session_id=${s.id}` as any)}
+                                onRename={() => setRenameTarget(s)}
+                                onPin={() => handleTogglePin(s.id, !s.is_pinned)}
+                                onDelete={() => setDeleteTarget(s)}
+                                onDragStart={handleSessionDragStart(s)}
+                              />
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {groups.map((group) => {
+                    const groupSessions = sessionsList.filter(
+                      (s) => s.group_id === group.id && !s.is_archived
+                    );
+                    return (
+                      <div
+                        key={group.id}
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          e.dataTransfer.dropEffect = "move";
+                        }}
+                        onDrop={handleGroupDrop(group.id)}
+                        className={`border border-border rounded-md p-2 mt-2 ${getGroupBgColor(group.id)}`}
+                      >
+                        <div className="flex items-center justify-between group/header mb-1">
+                          <div className="flex items-center gap-2 flex-1">
+                            <div className="w-2 h-2 rounded-full bg-primary/70"></div>
+                            <div className="text-[10px] font-semibold text-foreground uppercase tracking-wide">
+                              {group.name}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-0.5 opacity-0 group-hover/header:opacity-100 transition-opacity">
+                            <div
+                              onClick={() => setGroupToDelete(group)}
+                              className="p-1 rounded cursor-pointer hover:bg-accent/50 transition-colors"
+                              title="Delete group"
+                            >
+                              <Trash2 className="size-3 text-muted-foreground hover:text-red-600" />
+                            </div>
+                          </div>
+                        </div>
+                        <div className="min-h-[20px]">
+                          {groupSessions.length === 0 ? (
+                            <p className="text-[11.5px] text-muted-foreground/60 p-3 text-center italic">{t("emptyGroup")}</p>
+                          ) : (
+                            groupSessions.map((s, idx) => (
+                              <div key={s.id} className={idx < groupSessions.length - 1 ? "border-b border-border" : ""}>
+                                <SessionListItem
+                                  session={s}
+                                  agent={ags[s.agent_id]}
+                                  isActive={sessionId === s.id}
+                                  onNavigate={() => router.push(`/chat/${s.agent_id}?session_id=${s.id}` as any)}
+                                  onRename={() => setRenameTarget(s)}
+                                  onPin={() => handleTogglePin(s.id, !s.is_pinned)}
+                                  onDelete={() => setDeleteTarget(s)}
+                                  onDragStart={handleSessionDragStart(s)}
+                                />
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  <div
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = "move";
+                    }}
+                    onDrop={handleUngroupDrop}
                   >
-                    <span className="text-[12.5px] truncate block text-foreground font-medium">{s.title}</span>
-                    <span className="text-[9.5px] text-muted-foreground block truncate">
-                      {ags[s.agent_id]?.name || "Agent"} · {formatSessionTime(s.created_at)}
-                    </span>
-                  </button>
-                );
-              })
+                    <div className="px-3 mt-3 mb-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-2">
+                      <Link2Off className="size-3" />
+                      Ungroup
+                    </div>
+                    <div className="min-h-[20px]">
+                      {sessionsList.some((s) => !s.group_id && !s.is_pinned && !s.is_archived) ? (
+                        <div>
+                          {sessionsList
+                            .filter((s) => !s.group_id && !s.is_pinned && !s.is_archived)
+                            .map((s, idx, arr) => (
+                              <div key={s.id} className={idx < arr.length - 1 ? "border-b border-border" : ""}>
+                                <SessionListItem
+                                  session={s}
+                                  agent={ags[s.agent_id]}
+                                  isActive={sessionId === s.id}
+                                  onNavigate={() => router.push(`/chat/${s.agent_id}?session_id=${s.id}` as any)}
+                                  onRename={() => setRenameTarget(s)}
+                                  onPin={() => handleTogglePin(s.id, !s.is_pinned)}
+                                  onDelete={() => setDeleteTarget(s)}
+                                  onDragStart={handleSessionDragStart(s)}
+                                />
+                              </div>
+                            ))}
+                        </div>
+                      ) : (
+                        <p className="text-[11.5px] text-muted-foreground/60 p-3 text-center italic">Drag here to ungroup</p>
+                      )}
+                    </div>
+                  </div>
+
+
+                  <div className="px-2 pt-2 border-t border-border">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full text-[11px] h-7"
+                      onClick={() => setShowNewGroupDialog(true)}
+                    >
+                      + Create Group
+                    </Button>
+                  </div>
+                </>
+              )}
+            </div>
+          </aside>
+        )}
+
+        {/* Left panel toggle button - sticky at right edge of panel */}
+        <div
+          className="fixed top-1/2 z-50 pointer-events-none transform -translate-y-1/2 transition-all duration-300"
+          style={{ left: leftPanelOpen ? '456px' : '240px' }}
+        >
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-12 w-12 rounded-full shadow-xl hover:bg-accent pointer-events-auto border-2"
+            onClick={() => setLeftPanelOpen(!leftPanelOpen)}
+            aria-label={leftPanelOpen ? t("closePanel") : t("showPanel")}
+            title={leftPanelOpen ? t("closePanel") : t("showPanel")}
+          >
+            {leftPanelOpen ? (
+              <ChevronLeft className="size-5" />
+            ) : (
+              <ChevronRight className="size-5" />
             )}
-          </div>
-        </aside>
+          </Button>
+        </div>
 
         {/* Right pane: Chat Workspace */}
-        <div className="flex-1 flex flex-col min-w-0 bg-background">
+        <div className="flex-1 flex flex-col min-w-0 bg-background relative">
           <Topbar
             title={
               <span className="flex items-center gap-2">
@@ -441,9 +734,222 @@ export default function ChatPage() {
               </div>
             </div>
           </div>
+
+          {/* Toggle button - sticky at center of panel edge */}
+          <div
+            className="fixed top-1/2 z-50 pointer-events-none transform -translate-y-1/2 transition-all duration-300"
+            style={{ right: rightPanelOpen ? 'calc(320px - 24px)' : '24px' }}
+          >
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-12 w-12 rounded-full shadow-xl hover:bg-accent pointer-events-auto border-2"
+              onClick={() => setRightPanelOpen(!rightPanelOpen)}
+              aria-label={rightPanelOpen ? t("closePanel") : t("showPanel")}
+              title={rightPanelOpen ? t("closePanel") : t("showPanel")}
+            >
+              {rightPanelOpen ? (
+                <ChevronRight className="size-5" />
+              ) : (
+                <ChevronLeft className="size-5" />
+              )}
+            </Button>
+          </div>
         </div>
       </div>
+
+      {/* Delete Session Dialog */}
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("deleteSession")}</DialogTitle>
+            <DialogDescription>
+              Archive "{deleteTarget?.title}"? You can restore it later from archived sessions.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>
+              {t("cancel")}
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteSession}>
+              {t("archive")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Rename Session Dialog */}
+      <Dialog open={!!renameTarget} onOpenChange={(open) => !open && setRenameTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("renameSession")}</DialogTitle>
+            <DialogDescription>
+              Enter a new title for this chat session.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <input
+              type="text"
+              value={renameTitle}
+              onChange={(e) => setRenameTitle(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleRenameSession();
+                if (e.key === "Escape") setRenameTarget(null);
+              }}
+              className="w-full px-3 py-2 border border-border rounded bg-background text-foreground outline-none focus:ring-2 focus:ring-primary"
+              placeholder="Session title..."
+              autoFocus
+            />
+          </div>
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setRenameTarget(null)}>
+              {t("cancel")}
+            </Button>
+            <Button onClick={handleRenameSession}>
+              {t("save")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Group Dialog */}
+      <Dialog open={showNewGroupDialog} onOpenChange={setShowNewGroupDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("createGroup")}</DialogTitle>
+            <DialogDescription>
+              Create a new folder to organize your chats.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <input
+              type="text"
+              value={newGroupName}
+              onChange={(e) => setNewGroupName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") createNewGroup();
+                if (e.key === "Escape") setShowNewGroupDialog(false);
+              }}
+              className="w-full px-3 py-2 border border-border rounded bg-background text-foreground outline-none focus:ring-2 focus:ring-primary"
+              placeholder="Group name..."
+              autoFocus
+            />
+          </div>
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setShowNewGroupDialog(false)}>
+              {t("cancel")}
+            </Button>
+            <Button onClick={createNewGroup}>
+              {t("create")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Group Dialog */}
+      <Dialog open={!!groupToDelete} onOpenChange={(open) => !open && setGroupToDelete(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete group?</DialogTitle>
+            <DialogDescription>
+              Delete "{groupToDelete?.name}"? All chats in this group will be moved to the main list.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setGroupToDelete(null)}>
+              {t("cancel")}
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteGroup}>
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppShell>
+  );
+}
+
+function SessionListItem({
+  session,
+  agent,
+  isActive,
+  onNavigate,
+  onRename,
+  onPin,
+  onDelete,
+  onDragStart,
+}: {
+  session: any;
+  agent: any;
+  isActive: boolean;
+  onNavigate: () => void;
+  onRename: () => void;
+  onPin: () => void;
+  onDelete: () => void;
+  onDragStart?: (e: React.DragEvent) => void;
+}) {
+  return (
+    <div
+      draggable
+      onDragStart={onDragStart}
+      className={`w-full text-left px-3 py-2 rounded-md transition-colors flex items-center gap-1 group cursor-move ${
+        isActive
+          ? "bg-accent text-accent-foreground font-medium"
+          : "text-muted-foreground hover:bg-accent/40"
+      }`}
+    >
+      <button onClick={onNavigate} className="flex-1 min-w-0 text-left">
+        <span className="text-[12.5px] truncate block text-foreground font-medium">
+          {session.title}
+        </span>
+        <span className="text-[9.5px] text-muted-foreground block truncate">
+          {agent?.name || "Agent"} · {formatSessionTime(session.created_at)}
+        </span>
+      </button>
+
+      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+        <Button
+          size="icon"
+          variant="ghost"
+          className="h-6 w-6"
+          onClick={(e) => {
+            e.stopPropagation();
+            onPin();
+          }}
+          title={session.is_pinned ? "Unpin" : "Pin"}
+        >
+          {session.is_pinned ? (
+            <Pin className="size-3 fill-current" />
+          ) : (
+            <Pin className="size-3" />
+          )}
+        </Button>
+        <Button
+          size="icon"
+          variant="ghost"
+          className="h-6 w-6"
+          onClick={(e) => {
+            e.stopPropagation();
+            onRename();
+          }}
+          title="Rename"
+        >
+          <Edit2 className="size-3" />
+        </Button>
+        <Button
+          size="icon"
+          variant="ghost"
+          className="h-6 w-6"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete();
+          }}
+          title="Delete"
+        >
+          <Trash2 className="size-3" />
+        </Button>
+      </div>
+    </div>
   );
 }
 
@@ -490,7 +996,7 @@ function Bubble({ msg }: { msg: Msg }) {
   if (msg.tool_calls) {
     try {
       parsedTools = typeof msg.tool_calls === "string" ? JSON.parse(msg.tool_calls) : msg.tool_calls;
-    } catch (e) {}
+    } catch (e) { }
   }
 
   return (
@@ -633,101 +1139,106 @@ function Inspector({
   const currentModelName = currentModel ? (currentModel.display_name || currentModel.model_id) : `Model #${agent.model_id}`;
 
   return (
-    <div className="p-5 space-y-6 max-h-screen overflow-y-auto pb-10">
-      <div>
-        <div className="section-h mb-2">Agent</div>
-        <div className="font-serif text-[17px] text-foreground tracking-tight">{agent.name}</div>
-        <p className="text-[12px] text-muted-foreground mt-1">{agent.description || t("noDescription")}</p>
+    <div className="flex flex-col h-full relative">
+      <div className="px-5 pt-4 pb-3 shrink-0 border-b border-border">
+        <div className="text-[13px] font-semibold text-foreground">{t("properties")}</div>
       </div>
-
-      <Separator />
-
-      <div className="space-y-2.5">
-        <div className="section-h">{t("parameters")}</div>
-        <Row k="Temperature" v={agent.temperature.toFixed(2)} />
-        <Row k="Max tokens" v={String(agent.max_tokens)} />
-
-        <div className="flex items-center justify-between text-[12px] min-h-[28px]">
-          <span className="text-muted-foreground">Model</span>
-          {canEdit ? (
-            <div className="flex flex-col items-end">
-              <Select value={String(agent.model_id)} onValueChange={handleModelChange} disabled={modelBusy}>
-                <SelectTrigger className="h-7 text-[11px] px-2 py-1 bg-background border-border min-w-[125px] max-w-[170px]">
-                  <SelectValue placeholder="Select model" />
-                </SelectTrigger>
-                <SelectContent>
-                  {models.map((m) => (
-                    <SelectItem key={m.id} value={String(m.id)} className="text-[11px]">
-                      {m.display_name || m.model_id}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {modelErr && (
-                <span className="text-[9px] text-destructive mt-0.5 font-sans leading-none">{modelErr}</span>
-              )}
-            </div>
-          ) : (
-            <span className="font-mono text-foreground">{currentModelName}</span>
-          )}
+      <div className="p-5 space-y-6 max-h-screen overflow-y-auto pb-20 flex-1">
+        <div>
+          <div className="section-h mb-2">Agent</div>
+          <div className="font-serif text-[17px] text-foreground tracking-tight">{agent.name}</div>
+          <p className="text-[12px] text-muted-foreground mt-1">{agent.description || t("noDescription")}</p>
         </div>
 
-        <Row k="Visibility" v={agent.is_published ? "published" : "private"} />
-      </div>
+        <Separator />
 
-      <Separator />
+        <div className="space-y-2.5">
+          <div className="section-h">{t("parameters")}</div>
+          <Row k="Temperature" v={agent.temperature.toFixed(2)} />
+          <Row k="Max tokens" v={String(agent.max_tokens)} />
 
-      <div className="space-y-3">
-        <div className="section-h">{t("enabledSkills")}</div>
-        <div className="space-y-2">
-          {allTools.map((tool) => {
-            const bound = agentTools.find((at) => at.tool_key === tool.key);
-            const enabled = bound ? bound.enabled : false;
-            return (
-              <label key={tool.key} className="flex items-start gap-2.5 p-2 rounded-lg border border-border/80 bg-card hover:bg-accent/40 cursor-pointer text-[12.5px] transition-colors">
-                <input
-                  type="checkbox"
-                  checked={enabled}
-                  disabled={!canEdit}
-                  onChange={() => toggleTool(tool.key, enabled)}
-                  className="mt-0.5 w-3.5 h-3.5 accent-primary"
-                />
-                <div className="min-w-0 flex-1">
-                  <div className="font-medium text-foreground flex items-center justify-between">
-                    <span>{tool.name}</span>
-                    {tool.type === "system" ? (
-                      <span className="text-[8.5px] text-muted-foreground font-mono bg-muted px-1 rounded">sys</span>
-                    ) : (
-                      <span className="text-[8.5px] text-primary font-mono bg-primary/10 px-1 rounded">api</span>
-                    )}
+          <div className="flex items-center justify-between text-[12px] min-h-[28px]">
+            <span className="text-muted-foreground">Model</span>
+            {canEdit ? (
+              <div className="flex flex-col items-end">
+                <Select value={String(agent.model_id)} onValueChange={handleModelChange} disabled={modelBusy}>
+                  <SelectTrigger className="h-7 text-[11px] px-2 py-1 bg-background border-border min-w-[125px] max-w-[170px]">
+                    <SelectValue placeholder="Select model" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {models.map((m) => (
+                      <SelectItem key={m.id} value={String(m.id)} className="text-[11px]">
+                        {m.display_name || m.model_id}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {modelErr && (
+                  <span className="text-[9px] text-destructive mt-0.5 font-sans leading-none">{modelErr}</span>
+                )}
+              </div>
+            ) : (
+              <span className="font-mono text-foreground">{currentModelName}</span>
+            )}
+          </div>
+
+          <Row k="Visibility" v={agent.is_published ? "published" : "private"} />
+        </div>
+
+        <Separator />
+
+        <div className="space-y-3">
+          <div className="section-h">{t("enabledSkills")}</div>
+          <div className="space-y-2">
+            {allTools.map((tool) => {
+              const bound = agentTools.find((at) => at.tool_key === tool.key);
+              const enabled = bound ? bound.enabled : false;
+              return (
+                <label key={tool.key} className="flex items-start gap-2.5 p-2 rounded-lg border border-border/80 bg-card hover:bg-accent/40 cursor-pointer text-[12.5px] transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={enabled}
+                    disabled={!canEdit}
+                    onChange={() => toggleTool(tool.key, enabled)}
+                    className="mt-0.5 w-3.5 h-3.5 accent-primary"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium text-foreground flex items-center justify-between">
+                      <span>{tool.name}</span>
+                      {tool.type === "system" ? (
+                        <span className="text-[8.5px] text-muted-foreground font-mono bg-muted px-1 rounded">sys</span>
+                      ) : (
+                        <span className="text-[8.5px] text-primary font-mono bg-primary/10 px-1 rounded">api</span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-muted-foreground truncate" title={tool.description}>{tool.description}</p>
                   </div>
-                  <p className="text-[11px] text-muted-foreground truncate" title={tool.description}>{tool.description}</p>
-                </div>
-              </label>
-            );
-          })}
-          {allTools.length === 0 && (
-            <p className="text-[11px] text-muted-foreground text-center py-2">{t("noTools")}</p>
-          )}
+                </label>
+              );
+            })}
+            {allTools.length === 0 && (
+              <p className="text-[11px] text-muted-foreground text-center py-2">{t("noTools")}</p>
+            )}
+          </div>
         </div>
-      </div>
 
-      <Separator />
+        <Separator />
 
-      <div>
-        <div className="section-h mb-2">{t("systemPrompt")}</div>
-        <div className="text-[12px] font-mono leading-relaxed text-foreground/80 bg-muted border border-border rounded-md p-3 max-h-48 overflow-y-auto whitespace-pre-wrap">
-          {agent.system_prompt || "—"}
+        <div>
+          <div className="section-h mb-2">{t("systemPrompt")}</div>
+          <div className="text-[12px] font-mono leading-relaxed text-foreground/80 bg-muted border border-border rounded-md p-3 max-h-48 overflow-y-auto whitespace-pre-wrap">
+            {agent.system_prompt || "—"}
+          </div>
         </div>
-      </div>
 
-      <Separator />
+        <Separator />
 
-      <div className="space-y-2.5">
-        <div className="section-h">{t("sessionStats")}</div>
-        <Row k={t("messages")} v={String(msgCount)} />
-        <Row k={t("tokensIn")} v={totalIn.toLocaleString()} />
-        <Row k={t("tokensOut")} v={totalOut.toLocaleString()} />
+        <div className="space-y-2.5">
+          <div className="section-h">{t("sessionStats")}</div>
+          <Row k={t("messages")} v={String(msgCount)} />
+          <Row k={t("tokensIn")} v={totalIn.toLocaleString()} />
+          <Row k={t("tokensOut")} v={totalOut.toLocaleString()} />
+        </div>
       </div>
     </div>
   );

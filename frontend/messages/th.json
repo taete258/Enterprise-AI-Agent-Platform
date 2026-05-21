@@ -126,7 +126,18 @@
     "noTools": "No tools registered.",
     "noDescription": "ไม่มีคำอธิบาย",
     "attachFile": "แนบไฟล์",
-    "removeAttachment": "ลบไฟล์แนบ"
+    "removeAttachment": "ลบไฟล์แนบ",
+    "properties": "คุณสมบัติ",
+    "showPanel": "แสดงแผง",
+    "closePanel": "ปิดแผง",
+    "deleteSession": "เก็บแชทลงเก็บถาวร",
+    "archive": "เก็บลงเก็บถาวร",
+    "renameSession": "เปลี่ยนชื่อแชท",
+    "createGroup": "สร้างโฟลเดอร์",
+    "emptyGroup": "ยังไม่มีแชท",
+    "save": "บันทึก",
+    "cancel": "ยกเลิก",
+    "create": "สร้าง"
   },
   "DashboardPage": {
     "title": "Usage",

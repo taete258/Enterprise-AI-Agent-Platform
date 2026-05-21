@@ -126,7 +126,18 @@
     "noTools": "No tools registered.",
     "noDescription": "No description",
     "attachFile": "Attach file",
-    "removeAttachment": "Remove attachment"
+    "removeAttachment": "Remove attachment",
+    "properties": "Properties",
+    "showPanel": "Show panel",
+    "closePanel": "Close panel",
+    "deleteSession": "Archive chat",
+    "archive": "Archive",
+    "renameSession": "Rename chat",
+    "createGroup": "Create folder",
+    "emptyGroup": "No chats yet",
+    "save": "Save",
+    "cancel": "Cancel",
+    "create": "Create"
   },
   "DashboardPage": {
     "title": "Usage",
