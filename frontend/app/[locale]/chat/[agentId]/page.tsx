@@ -252,19 +252,14 @@ export default function ChatPage() {
   const [draggedSession, setDraggedSession] = useState<any | null>(null);
   const [groupToDelete, setGroupToDelete] = useState<any | null>(null);
   const [hasMore, setHasMore] = useState(false);
-  // 'hidden' | 'entering' | 'exiting'
   const [spinnerPhase, setSpinnerPhase] = useState<'hidden' | 'entering' | 'exiting'>('hidden');
   const [showScrollBottom, setShowScrollBottom] = useState(false);
 
-  // Zone height management for resizable sidebar
-  const [pinnedHeight, setPinnedHeight] = useState<number | null>(null);
-  const [groupsHeight, setGroupsHeight] = useState<number | null>(null);
-  const resizeRef = useRef<{ isResizing: boolean; startY: number; startPinnedH: number; startGroupsH: number; sidebarHeight: number }>({
-    isResizing: false,
-    startY: 0,
-    startPinnedH: 0,
-    startGroupsH: 0,
-    sidebarHeight: 0,
+  // Accordion state for sidebar sections
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+    pinned: true,
+    groups: true,
+    ungrouped: true,
   });
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -291,17 +286,16 @@ export default function ChatPage() {
   }
   useEffect(() => { loadTools(); }, [id]);
 
-  // Initialize zone heights and panel states from localStorage
+  // Initialize accordion and panel states from localStorage
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    // Load zone heights
-    const savedHeights = localStorage.getItem('chatSidebarZoneHeights');
-    if (savedHeights) {
+    // Load accordion states
+    const savedAccordion = localStorage.getItem('chatSidebarAccordion');
+    if (savedAccordion) {
       try {
-        const { pinned, groups } = JSON.parse(savedHeights);
-        setPinnedHeight(pinned);
-        setGroupsHeight(groups);
+        const sections = JSON.parse(savedAccordion);
+        setExpandedSections(sections);
       } catch { }
     }
 
@@ -316,11 +310,11 @@ export default function ChatPage() {
     }
   }, []);
 
-  // Save zone heights to localStorage
-  const saveHeights = (pHeight: number, gHeight: number) => {
+  // Save accordion states to localStorage whenever they change
+  useEffect(() => {
     if (typeof window === 'undefined') return;
-    localStorage.setItem('chatSidebarZoneHeights', JSON.stringify({ pinned: pHeight, groups: gHeight }));
-  };
+    localStorage.setItem('chatSidebarAccordion', JSON.stringify(expandedSections));
+  }, [expandedSections]);
 
   // Save panel states to localStorage whenever they change
   useEffect(() => {
@@ -334,50 +328,11 @@ export default function ChatPage() {
     localStorage.setItem('lastActiveSession', JSON.stringify({ agentId: id, sessionId }));
   }, [sessionId, id]);
 
-  const handleResizeStart = (resizeType: 'pinned-groups' | 'groups-ungrouped') => (e: React.MouseEvent) => {
-    const sidebar = document.querySelector('aside');
-    if (!sidebar) return;
-    const sidebarRect = sidebar.getBoundingClientRect();
-    const headerHeight = 60;
-    const availHeight = sidebarRect.height - headerHeight;
-
-    const startPinnedH = pinnedHeight || Math.floor(availHeight * 0.25);
-    const startGroupsH = groupsHeight || Math.floor(availHeight * 0.5);
-
-    resizeRef.current.isResizing = true;
-    resizeRef.current.startY = e.clientY;
-    resizeRef.current.sidebarHeight = availHeight;
-    resizeRef.current.startPinnedH = startPinnedH;
-    resizeRef.current.startGroupsH = startGroupsH;
-
-    const handleMouseMove = (moveEvent: MouseEvent) => {
-      if (!resizeRef.current.isResizing) return;
-      const delta = moveEvent.clientY - resizeRef.current.startY;
-      const minHeight = 60;
-
-      if (resizeType === 'pinned-groups') {
-        const newPinnedH = Math.max(minHeight, resizeRef.current.startPinnedH + delta);
-        const newGroupsH = Math.max(minHeight, resizeRef.current.sidebarHeight - newPinnedH - minHeight);
-        setPinnedHeight(newPinnedH);
-        setGroupsHeight(newGroupsH);
-      } else {
-        const delta = moveEvent.clientY - resizeRef.current.startY;
-        const newGroupsH = Math.max(minHeight, resizeRef.current.startGroupsH + delta);
-        setGroupsHeight(newGroupsH);
-      }
-    };
-
-    const handleMouseUp = () => {
-      resizeRef.current.isResizing = false;
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-      if (pinnedHeight && groupsHeight) {
-        saveHeights(pinnedHeight, groupsHeight);
-      }
-    };
-
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
+  const toggleSection = (section: string) => {
+    setExpandedSections((prev) => ({
+      ...prev,
+      [section]: !prev[section],
+    }));
   };
 
   const canEdit = !!(user && agent && (user.is_superuser || agent.owner_id === user.id));
@@ -800,165 +755,176 @@ export default function ChatPage() {
                 </div>
               ) : (
                 <>
-                  {/* Top Zone: Pinned Sessions */}
-                  <div className="flex-shrink-0 flex flex-col border-b border-border overflow-hidden" style={{ height: pinnedHeight ? `${pinnedHeight}px` : '25%' }}>
-                    <div className="px-3 py-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide flex-shrink-0">
-                      Pinned
-                    </div>
-                    <div className="flex-1 overflow-y-auto px-2">
-                      {sessionsList.filter((s) => s.is_pinned && !s.is_archived).length === 0 ? (
-                        <p className="text-[11.5px] text-muted-foreground/60 p-3 text-center italic">No pinned chats</p>
-                      ) : (
-                        <div>
-                          {sessionsList
-                            .filter((s) => s.is_pinned && !s.is_archived)
-                            .map((s, idx, arr) => (
-                              <div key={s.id} className="">
-                                <SessionListItem
-                                  session={s}
-                                  agent={ags[s.agent_id]}
-                                  isActive={sessionId === s.id}
-                                  onNavigate={() => router.push(`/chat/${s.agent_id}?session_id=${s.id}` as any)}
-                                  onRename={() => setRenameTarget(s)}
-                                  onPin={() => handleTogglePin(s.id, !s.is_pinned)}
-                                  onDelete={() => setDeleteTarget(s)}
-                                  onDragStart={handleSessionDragStart(s)}
-                                />
-                              </div>
-                            ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Resize Handle 1 */}
-                  <div
-                    onMouseDown={handleResizeStart('pinned-groups')}
-                    className="h-1 bg-border hover:bg-primary cursor-row-resize flex-shrink-0 transition-colors"
-                    title="Drag to resize"
-                  />
-
-                  {/* Center Zone: Groups */}
-                  <div className="flex-1 min-h-0 flex flex-col overflow-hidden border-b border-border" style={{ height: groupsHeight ? `${groupsHeight}px` : 'auto' }}>
-                    <div className="px-3 py-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide flex-shrink-0 flex items-center justify-between">
-                      <span>Groups</span>
-                      <button
-                        onClick={() => setShowNewGroupDialog(true)}
-                        className="p-0.5 rounded hover:bg-accent/50 transition-colors flex-shrink-0"
-                        title="Create group"
-                        aria-label="Create group"
-                      >
-                        <Plus className="size-3.5 text-muted-foreground hover:text-foreground" />
-                      </button>
-                    </div>
-                    <div className="flex-1 overflow-y-auto px-2 pb-2">
-                      {groups.length === 0 ? (
-                        <p className="text-[11.5px] text-muted-foreground/60 p-3 text-center italic">No groups yet</p>
-                      ) : (
-                        <div className="space-y-1">
-                          {groups.map((group) => {
-                            const groupSessions = sessionsList.filter(
-                              (s) => s.group_id === group.id && !s.is_archived
-                            );
-                            return (
-                              <div
-                                key={group.id}
-                                onDragOver={(e) => {
-                                  e.preventDefault();
-                                  e.dataTransfer.dropEffect = "move";
-                                }}
-                                onDrop={handleGroupDrop(group.id)}
-                                className={`border border-border rounded-md p-2 ${getGroupBgColor(group.id)}`}
-                              >
-                                <div className="flex items-center justify-between group/header mb-1">
-                                  <div className="flex items-center gap-2 flex-1">
-                                    <div className="w-2 h-2 rounded-full bg-primary/70"></div>
-                                    <div className="text-[10px] font-semibold text-foreground uppercase tracking-wide">
-                                      {group.name}
-                                    </div>
-                                  </div>
-                                  <div className="flex items-center gap-0.5 opacity-0 group-hover/header:opacity-100 transition-opacity">
-                                    <div
-                                      onClick={() => setGroupToDelete(group)}
-                                      className="p-1 rounded cursor-pointer hover:bg-accent/50 transition-colors"
-                                      title="Delete group"
-                                    >
-                                      <Trash2 className="size-3 text-muted-foreground hover:text-red-600" />
-                                    </div>
-                                  </div>
-                                </div>
-                                <div className="min-h-[20px]">
-                                  {groupSessions.length === 0 ? (
-                                    <p className="text-[11.5px] text-muted-foreground/60 p-3 text-center italic">{t("emptyGroup")}</p>
-                                  ) : (
-                                    groupSessions.map((s, idx) => (
-                                      <div key={s.id} className={idx < groupSessions.length - 1 ? "border-b border-border" : ""}>
-                                        <SessionListItem
-                                          session={s}
-                                          agent={ags[s.agent_id]}
-                                          isActive={sessionId === s.id}
-                                          onNavigate={() => router.push(`/chat/${s.agent_id}?session_id=${s.id}` as any)}
-                                          onRename={() => setRenameTarget(s)}
-                                          onPin={() => handleTogglePin(s.id, !s.is_pinned)}
-                                          onDelete={() => setDeleteTarget(s)}
-                                          onDragStart={handleSessionDragStart(s)}
-                                        />
-                                      </div>
-                                    ))
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Resize Handle 2 */}
-                  <div
-                    onMouseDown={handleResizeStart('groups-ungrouped')}
-                    className="h-1 bg-border hover:bg-primary cursor-row-resize flex-shrink-0 transition-colors"
-                    title="Drag to resize"
-                  />
-
-                  {/* Bottom Zone: Ungrouped Sessions */}
-                  <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-                    <div className="px-3 py-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-2 flex-shrink-0">
-                      <Link2Off className="size-3" />
-                      Ungrouped
-                    </div>
-                    <div
-                      className="flex-1 overflow-y-auto px-2"
-                      onDragOver={(e) => {
-                        e.preventDefault();
-                        e.dataTransfer.dropEffect = "move";
-                      }}
-                      onDrop={handleUngroupDrop}
+                  {/* Pinned Sessions - Accordion */}
+                  <div className="flex-shrink-0 border-b border-border">
+                    <button
+                      onClick={() => toggleSection('pinned')}
+                      className="w-full px-3 py-2 flex items-center justify-between hover:bg-accent/40 transition-colors"
                     >
-                      {sessionsList.some((s) => !s.group_id && !s.is_pinned && !s.is_archived) ? (
-                        <div className="space-y-1">
-                          {sessionsList
-                            .filter((s) => !s.group_id && !s.is_pinned && !s.is_archived)
-                            .map((s, idx, arr) => (
-                              <div key={s.id} className="">
-                                <SessionListItem
-                                  session={s}
-                                  agent={ags[s.agent_id]}
-                                  isActive={sessionId === s.id}
-                                  onNavigate={() => router.push(`/chat/${s.agent_id}?session_id=${s.id}` as any)}
-                                  onRename={() => setRenameTarget(s)}
-                                  onPin={() => handleTogglePin(s.id, !s.is_pinned)}
-                                  onDelete={() => setDeleteTarget(s)}
-                                  onDragStart={handleSessionDragStart(s)}
-                                />
-                              </div>
-                            ))}
+                      <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Pinned</span>
+                      <ChevronRight className={`size-3.5 text-muted-foreground transition-transform ${expandedSections.pinned ? 'rotate-90' : ''}`} />
+                    </button>
+                    {expandedSections.pinned && (
+                      <div className="overflow-y-auto px-2 pb-2 max-h-48">
+                        {sessionsList.filter((s) => s.is_pinned && !s.is_archived).length === 0 ? (
+                          <p className="text-[11.5px] text-muted-foreground/60 p-3 text-center italic">No pinned chats</p>
+                        ) : (
+                          <div>
+                            {sessionsList
+                              .filter((s) => s.is_pinned && !s.is_archived)
+                              .map((s) => (
+                                <div key={s.id}>
+                                  <SessionListItem
+                                    session={s}
+                                    agent={ags[s.agent_id]}
+                                    isActive={sessionId === s.id}
+                                    onNavigate={() => router.push(`/chat/${s.agent_id}?session_id=${s.id}` as any)}
+                                    onRename={() => setRenameTarget(s)}
+                                    onPin={() => handleTogglePin(s.id, !s.is_pinned)}
+                                    onDelete={() => setDeleteTarget(s)}
+                                    onDragStart={handleSessionDragStart(s)}
+                                  />
+                                </div>
+                              ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Groups - Accordion */}
+                  <div className="flex-shrink-0 border-b border-border">
+                    <div className="w-full px-3 py-2 flex items-center justify-between hover:bg-accent/40 transition-colors cursor-pointer group/header">
+                      <button
+                        onClick={() => toggleSection('groups')}
+                        className="flex-1 text-left flex items-center gap-2 -mx-3 px-3"
+                      >
+                        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Groups</span>
+                      </button>
+                      <div className="flex items-center gap-1 opacity-0 group-hover/header:opacity-100 transition-opacity">
+                        <div
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowNewGroupDialog(true);
+                          }}
+                          className="p-0.5 rounded hover:bg-accent/50 transition-colors cursor-pointer"
+                          title="Create group"
+                          aria-label="Create group"
+                        >
+                          <Plus className="size-3.5 text-muted-foreground hover:text-foreground" />
                         </div>
-                      ) : (
-                        <p className="text-[11.5px] text-muted-foreground/60 p-3 text-center italic">Drag here to ungroup</p>
-                      )}
+                        <div onClick={() => toggleSection('groups')} className="cursor-pointer">
+                          <ChevronRight className={`size-3.5 text-muted-foreground transition-transform ${expandedSections.groups ? 'rotate-90' : ''}`} />
+                        </div>
+                      </div>
                     </div>
+                    {expandedSections.groups && (
+                      <div className="overflow-y-auto px-2 pb-2 max-h-64">
+                        {groups.length === 0 ? (
+                          <p className="text-[11.5px] text-muted-foreground/60 p-3 text-center italic">No groups yet</p>
+                        ) : (
+                          <div className="space-y-1">
+                            {groups.map((group) => {
+                              const groupSessions = sessionsList.filter((s) => s.group_id === group.id && !s.is_archived);
+                              return (
+                                <div
+                                  key={group.id}
+                                  onDragOver={(e) => {
+                                    e.preventDefault();
+                                    e.dataTransfer.dropEffect = "move";
+                                  }}
+                                  onDrop={handleGroupDrop(group.id)}
+                                  className={`border border-border rounded-md p-2 ${getGroupBgColor(group.id)}`}
+                                >
+                                  <div className="flex items-center justify-between group/header mb-1">
+                                    <div className="flex items-center gap-2 flex-1">
+                                      <div className="w-2 h-2 rounded-full bg-primary/70"></div>
+                                      <div className="text-[10px] font-semibold text-foreground uppercase tracking-wide">{group.name}</div>
+                                    </div>
+                                    <div className="flex items-center gap-0.5 opacity-0 group-hover/header:opacity-100 transition-opacity">
+                                      <div
+                                        onClick={() => setGroupToDelete(group)}
+                                        className="p-1 rounded cursor-pointer hover:bg-accent/50 transition-colors"
+                                        title="Delete group"
+                                      >
+                                        <Trash2 className="size-3 text-muted-foreground hover:text-red-600" />
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div className="min-h-[20px]">
+                                    {groupSessions.length === 0 ? (
+                                      <p className="text-[11.5px] text-muted-foreground/60 p-3 text-center italic">{t("emptyGroup")}</p>
+                                    ) : (
+                                      groupSessions.map((s, idx) => (
+                                        <div key={s.id} className={idx < groupSessions.length - 1 ? "border-b border-border" : ""}>
+                                          <SessionListItem
+                                            session={s}
+                                            agent={ags[s.agent_id]}
+                                            isActive={sessionId === s.id}
+                                            onNavigate={() => router.push(`/chat/${s.agent_id}?session_id=${s.id}` as any)}
+                                            onRename={() => setRenameTarget(s)}
+                                            onPin={() => handleTogglePin(s.id, !s.is_pinned)}
+                                            onDelete={() => setDeleteTarget(s)}
+                                            onDragStart={handleSessionDragStart(s)}
+                                          />
+                                        </div>
+                                      ))
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Ungrouped Sessions - Accordion */}
+                  <div className="flex-1 min-h-0 flex flex-col overflow-hidden border-b border-border">
+                    <button
+                      onClick={() => toggleSection('ungrouped')}
+                      className="px-3 py-2 flex items-center justify-between hover:bg-accent/40 transition-colors flex-shrink-0"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Link2Off className="size-3 text-muted-foreground" />
+                        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Ungrouped</span>
+                      </div>
+                      <ChevronRight className={`size-3.5 text-muted-foreground transition-transform ${expandedSections.ungrouped ? 'rotate-90' : ''}`} />
+                    </button>
+                    {expandedSections.ungrouped && (
+                      <div
+                        className="flex-1 overflow-y-auto px-2 pb-2"
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          e.dataTransfer.dropEffect = "move";
+                        }}
+                        onDrop={handleUngroupDrop}
+                      >
+                        {sessionsList.some((s) => !s.group_id && !s.is_pinned && !s.is_archived) ? (
+                          <div className="space-y-1">
+                            {sessionsList
+                              .filter((s) => !s.group_id && !s.is_pinned && !s.is_archived)
+                              .map((s) => (
+                                <div key={s.id}>
+                                  <SessionListItem
+                                    session={s}
+                                    agent={ags[s.agent_id]}
+                                    isActive={sessionId === s.id}
+                                    onNavigate={() => router.push(`/chat/${s.agent_id}?session_id=${s.id}` as any)}
+                                    onRename={() => setRenameTarget(s)}
+                                    onPin={() => handleTogglePin(s.id, !s.is_pinned)}
+                                    onDelete={() => setDeleteTarget(s)}
+                                    onDragStart={handleSessionDragStart(s)}
+                                  />
+                                </div>
+                              ))}
+                          </div>
+                        ) : (
+                          <p className="text-[11.5px] text-muted-foreground/60 p-3 text-center italic">Drag here to ungroup</p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </>
               )}
