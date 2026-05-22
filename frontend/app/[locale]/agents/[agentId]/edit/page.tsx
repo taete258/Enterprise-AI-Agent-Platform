@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { useRouter } from "@/i18n/routing";
 import { agents, llm, admin } from "@/lib/api";
 import AppShell from "@/components/AppShell";
 import Topbar from "@/components/Topbar";
