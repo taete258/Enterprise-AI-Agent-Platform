@@ -131,6 +131,38 @@ function parseImageGenerationJson(content: string): { model?: string; prompt?: s
   return null;
 }
 
+function ImageWithFallback({ src, alt }: { src: string; alt: string }) {
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState(false);
+
+  return error ? (
+    <div className="flex flex-col items-center justify-center w-full h-full text-muted-foreground gap-2">
+      <div className="text-4xl">⚠</div>
+      <div className="text-xs text-center px-2">Image failed to load</div>
+    </div>
+  ) : (
+    <div className="relative w-full h-full">
+      {!loaded && (
+        <div className="absolute inset-0 flex items-center justify-center bg-muted">
+          <div className="flex flex-col items-center gap-2 text-muted-foreground">
+            <div className="animate-pulse text-2xl">⏳</div>
+            <div className="text-xs">Loading image...</div>
+          </div>
+        </div>
+      )}
+      <a href={src} target="_blank" rel="noopener noreferrer" className="block w-full h-full">
+        <img
+          src={src}
+          alt={alt}
+          onLoad={() => setLoaded(true)}
+          onError={() => setError(true)}
+          className={`w-full h-full object-cover transition-opacity ${loaded ? "opacity-100" : "opacity-0"}`}
+        />
+      </a>
+    </div>
+  );
+}
+
 function renderContentWithImages(content: string, modelName: string | null = null): ReactNode[] {
   if (!content) return [];
 
@@ -142,9 +174,9 @@ function renderContentWithImages(content: string, modelName: string | null = nul
       if (img.url) {
         parts.push(
           <div key={`img-gen-${idx}`} className="flex flex-col gap-1">
-            <a href={img.url} target="_blank" rel="noopener noreferrer">
-              <img src={img.url} alt={`Generated image ${idx + 1}`} className="rounded-md border border-border max-w-full max-h-[480px]" />
-            </a>
+            <div className="w-96 h-96 bg-muted rounded-md border border-border overflow-hidden flex items-center justify-center">
+              <ImageWithFallback src={img.url} alt={`Generated image ${idx + 1}`} />
+            </div>
             {(imgGenData.model || modelName) && (
               <span className="text-[11px] text-muted-foreground font-mono">Model: {imgGenData.model || modelName}</span>
             )}
@@ -168,10 +200,10 @@ function renderContentWithImages(content: string, modelName: string | null = nul
     const imgAlt = m[1] || "image";
     const imgUrl = m[2];
     parts.push(
-      <div key={`img-${key++}`} className="flex flex-col gap-1">
-        <a href={imgUrl} target="_blank" rel="noopener noreferrer">
-          <img src={imgUrl} alt={imgAlt} className="rounded-md border border-border max-w-full max-h-[480px] my-2" />
-        </a>
+      <div key={`img-${key++}`} className="flex flex-col gap-1 my-2">
+        <div className="w-96 h-96 bg-muted rounded-md border border-border overflow-hidden flex items-center justify-center">
+          <ImageWithFallback src={imgUrl} alt={imgAlt} />
+        </div>
         {modelName && (
           <span className="text-[11px] text-muted-foreground font-mono">Model: {modelName}</span>
         )}
@@ -1478,15 +1510,18 @@ function AttachmentItem({ messageId, attachment }: { messageId?: number; attachm
 
   if (isImage) {
     return (
-      <div className="rounded-lg overflow-hidden border border-border/80 bg-muted max-w-[260px]">
+      <div className="w-64 h-64 rounded-lg overflow-hidden border border-border/80 bg-muted flex items-center justify-center">
         {blobUrl ? (
-          <a href={blobUrl} target="_blank" rel="noreferrer">
-            <img src={blobUrl} alt={attachment.name} className="block max-h-[260px] w-auto" />
-          </a>
+          <ImageWithFallback src={blobUrl} alt={attachment.name} />
+        ) : errored ? (
+          <div className="flex flex-col items-center justify-center w-full h-full text-muted-foreground gap-2">
+            <div className="text-4xl">⚠</div>
+            <div className="text-xs text-center px-2">{attachment.name}</div>
+          </div>
         ) : (
-          <div className="flex items-center gap-1.5 text-[12px] px-2 py-1.5">
-            <FileText className="size-3 text-muted-foreground" />
-            <span className="truncate">{errored ? `⚠ ${attachment.name}` : attachment.name}</span>
+          <div className="flex flex-col items-center gap-2 text-muted-foreground">
+            <div className="animate-pulse text-2xl">⏳</div>
+            <div className="text-xs">{attachment.name}</div>
           </div>
         )}
       </div>
