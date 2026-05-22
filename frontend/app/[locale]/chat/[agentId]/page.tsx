@@ -259,15 +259,27 @@ export default function ChatPage() {
   }
   useEffect(() => { loadTools(); }, [id]);
 
-  // Initialize zone heights from localStorage
+  // Initialize zone heights and panel states from localStorage
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const saved = localStorage.getItem('chatSidebarZoneHeights');
-    if (saved) {
+
+    // Load zone heights
+    const savedHeights = localStorage.getItem('chatSidebarZoneHeights');
+    if (savedHeights) {
       try {
-        const { pinned, groups } = JSON.parse(saved);
+        const { pinned, groups } = JSON.parse(savedHeights);
         setPinnedHeight(pinned);
         setGroupsHeight(groups);
+      } catch { }
+    }
+
+    // Load panel visibility states
+    const savedPanels = localStorage.getItem('chatPanelStates');
+    if (savedPanels) {
+      try {
+        const { leftOpen, rightOpen } = JSON.parse(savedPanels);
+        setLeftPanelOpen(leftOpen);
+        setRightPanelOpen(rightOpen);
       } catch { }
     }
   }, []);
@@ -277,6 +289,18 @@ export default function ChatPage() {
     if (typeof window === 'undefined') return;
     localStorage.setItem('chatSidebarZoneHeights', JSON.stringify({ pinned: pHeight, groups: gHeight }));
   };
+
+  // Save panel states to localStorage whenever they change
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem('chatPanelStates', JSON.stringify({ leftOpen: leftPanelOpen, rightOpen: rightPanelOpen }));
+  }, [leftPanelOpen, rightPanelOpen]);
+
+  // Save active session to localStorage whenever it changes
+  useEffect(() => {
+    if (typeof window === 'undefined' || !sessionId) return;
+    localStorage.setItem('lastActiveSession', JSON.stringify({ agentId: id, sessionId }));
+  }, [sessionId, id]);
 
   const handleResizeStart = (resizeType: 'pinned-groups' | 'groups-ungrouped') => (e: React.MouseEvent) => {
     const sidebar = document.querySelector('aside');
@@ -482,6 +506,7 @@ export default function ChatPage() {
     }).catch(() => { });
   }, []);
 
+  // Load sessions list on mount and after mutations that change session state
   useEffect(() => {
     sessions.list().then(setSessionsList).catch(() => { });
   }, [sessionId]);
@@ -508,30 +533,48 @@ export default function ChatPage() {
     };
   }
 
+  // Step 1 — if URL has session_id, load that session's messages
   useEffect(() => {
-    if (sessionIdQuery) {
-      const sId = Number(sessionIdQuery);
-      setSessionId(sId);
-      initialScrollDoneRef.current = false;
-      sessions.messages(sId, { limit: PAGE_SIZE })
-        .then((data) => {
-          setMsgs(data.map(mapMsg));
-          setHasMore(data.length === PAGE_SIZE);
-        }).catch(() => { });
-    } else {
-      const isNew = searchParams ? searchParams.get("new") === "true" : false;
-      if (!isNew && sessionsList.length > 0) {
-        const existingSession = sessionsList.find((s) => s.agent_id === id);
-        if (existingSession) {
-          router.replace(`/chat/${id}?session_id=${existingSession.id}` as any);
-          return;
+    if (!sessionIdQuery) return;
+    const sId = Number(sessionIdQuery);
+    setSessionId(sId);
+    initialScrollDoneRef.current = false;
+    sessions.messages(sId, { limit: PAGE_SIZE })
+      .then((data) => {
+        setMsgs(data.map(mapMsg));
+        setHasMore(data.length === PAGE_SIZE);
+      }).catch(() => { });
+  }, [sessionIdQuery]);
+
+  // Step 2 — no session_id in URL yet: pick the right session and navigate to it.
+  // sessionIdQuery acts as the natural guard — once set, this effect is a no-op.
+  useEffect(() => {
+    if (sessionIdQuery) return;                         // already have a session in URL
+    if (searchParams?.get("new") === "true") return;   // user explicitly wants a new chat
+    if (sessionsList.length === 0) return;             // sessions not yet loaded
+
+    let target: any = null;
+
+    // Prefer the last session the user was on for this agent
+    const savedRaw = typeof window !== 'undefined' ? localStorage.getItem('lastActiveSession') : null;
+    if (savedRaw) {
+      try {
+        const { agentId: savedAgentId, sessionId: savedSessionId } = JSON.parse(savedRaw);
+        if (Number(savedAgentId) === id) {
+          target = sessionsList.find(s => s.id === savedSessionId && !s.is_archived) ?? null;
         }
-      }
-      setSessionId(undefined);
-      setMsgs([]);
-      setHasMore(false);
+      } catch { }
     }
-  }, [id, sessionIdQuery, sessionsList, searchParams, router]);
+
+    // Fall back to the most recent session for this agent
+    if (!target) {
+      target = sessionsList.find(s => s.agent_id === id && !s.is_archived) ?? null;
+    }
+
+    if (target) {
+      router.replace(`/chat/${id}?session_id=${target.id}` as any);
+    }
+  }, [sessionIdQuery, sessionsList, id, searchParams, router]);
 
   useEffect(() => { hasMoreRef.current = hasMore; }, [hasMore]);
   useEffect(() => { msgsRef.current = msgs; }, [msgs]);

@@ -64,7 +64,13 @@ export default function AppShell({ children, rightPanel }: {
     }
   }, [pathname, router]);
 
-  function logout() { localStorage.removeItem("token"); router.push("/"); }
+  function logout() {
+    localStorage.removeItem("token");
+    localStorage.removeItem("chatSidebarZoneHeights");
+    localStorage.removeItem("chatPanelStates");
+    localStorage.removeItem("lastActiveSession");
+    router.push("/");
+  }
 
   if (checkingAuth) {
     return (

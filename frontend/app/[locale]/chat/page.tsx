@@ -13,8 +13,17 @@ export default function ChatsListPage() {
     sessions.list()
       .then((list) => {
         if (list && list.length > 0) {
-          const lastSession = list[0];
-          router.replace(`/chat/${lastSession.agent_id}?session_id=${lastSession.id}` as any);
+          // Prefer the last active session from localStorage
+          let target = list[0];
+          const savedRaw = typeof window !== "undefined" ? localStorage.getItem("lastActiveSession") : null;
+          if (savedRaw) {
+            try {
+              const { agentId: savedAgentId, sessionId: savedSessionId } = JSON.parse(savedRaw);
+              const saved = list.find((s: any) => s.id === savedSessionId && s.agent_id === savedAgentId && !s.is_archived);
+              if (saved) target = saved;
+            } catch { }
+          }
+          router.replace(`/chat/${target.agent_id}?session_id=${target.id}` as any);
         } else {
           router.replace("/agents");
         }
