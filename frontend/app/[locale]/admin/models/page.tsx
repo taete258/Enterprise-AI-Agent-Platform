@@ -10,9 +10,10 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SearchableSelect } from "@/components/ui/searchable-select";
-import { AlertCircle, Eye, Trash2, Image, X, Edit2 } from "lucide-react";
+import { AlertCircle, Eye, Trash2, Image, Edit2 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useTranslations } from "next-intl";
+import { detectCapabilities } from "@/lib/modelCapabilities";
 
 export default function ModelsPage() {
   const t = useTranslations("ModelsPage");
@@ -50,20 +51,29 @@ export default function ModelsPage() {
     setAvailable([]); setAvailErr(""); setManual(false);
     if (!id) return;
     setLoadingAvail(true);
-    try { const r = await llm.availableModels(id); setAvailable(r.models); }
+    try {
+      const r = await llm.availableModels(id);
+      setAvailable(r.models.map((m: { id: string; display: string; capabilities?: string[] }) => ({
+        ...m,
+        capabilities: m.capabilities && m.capabilities.length > 0
+          ? m.capabilities
+          : detectCapabilities(m.id),
+      })));
+    }
     catch (e: any) { setAvailErr(e.message); }
     finally { setLoadingAvail(false); }
   }
 
   async function startEdit(model: any) {
     setEditingModel(model);
+    const caps = detectCapabilities(model.model_id);
     setEditForm({
       display_name: model.display_name,
       context_window: model.context_window,
       input_cost_per_1k: model.input_cost_per_1k,
       output_cost_per_1k: model.output_cost_per_1k,
-      supports_vision: model.supports_vision,
-      supports_image_generation: model.supports_image_generation,
+      supports_vision: caps.includes("vision"),
+      supports_image_generation: caps.includes("image gen"),
     });
     setEditErr("");
   }
@@ -137,10 +147,13 @@ export default function ModelsPage() {
                     value={form.model_id}
                     onValueChange={(v) => {
                       const selected = available.find((m) => m.id === v);
+                      const caps = detectCapabilities(v);
                       setForm((f) => ({
                         ...f,
                         model_id: v,
                         display_name: f.display_name || selected?.display || "",
+                        supports_vision: caps.includes("vision"),
+                        supports_image_generation: caps.includes("image gen"),
                       }));
                     }}
                     options={available}
@@ -179,21 +192,6 @@ export default function ModelsPage() {
                 </div>
               </div>
 
-              <div className="sm:col-span-2 space-y-2">
-                <label className="flex items-center gap-2 text-[13px]">
-                  <input type="checkbox" className="accent-primary w-4 h-4"
-                         checked={form.supports_vision}
-                         onChange={(e) => setForm({ ...form, supports_vision: e.target.checked })} />
-                  {t("supportsVision")}
-                </label>
-                <label className="flex items-center gap-2 text-[13px]">
-                  <input type="checkbox" className="accent-primary w-4 h-4"
-                         checked={form.supports_image_generation}
-                         onChange={(e) => setForm({ ...form, supports_image_generation: e.target.checked })} />
-                  Supports Image Generation
-                </label>
-              </div>
-
               {err && (
                 <Alert variant="destructive" className="sm:col-span-2">
                   <AlertCircle className="size-4" /><AlertDescription>{err}</AlertDescription>
@@ -226,9 +224,10 @@ export default function ModelsPage() {
                     <td className="px-3 py-2.5 text-right font-mono">{m.input_cost_per_1k}</td>
                     <td className="px-3 py-2.5 text-right font-mono">{m.output_cost_per_1k}</td>
                     <td className="px-3 py-2.5">
-                      <div className="flex items-center gap-2">
-                        {m.supports_vision && <Badge variant="success"><Eye className="size-3 mr-1" />vision</Badge>}
-                        {m.supports_image_generation && <Badge variant="secondary"><Image className="size-3 mr-1" />image</Badge>}
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <Badge variant="outline" className="text-[11px]">text</Badge>
+                        {m.supports_vision && <Badge variant="success" className="text-[11px]"><Eye className="size-3 mr-1" />vision</Badge>}
+                        {m.supports_image_generation && <Badge variant="secondary" className="text-[11px]"><Image className="size-3 mr-1" />image gen</Badge>}
                       </div>
                     </td>
                     <td className="px-3 py-2.5 text-right">
@@ -294,21 +293,6 @@ export default function ModelsPage() {
                 <Input type="number" step="0.0001" value={editForm.output_cost_per_1k}
                        onChange={(e) => setEditForm({ ...editForm, output_cost_per_1k: Number(e.target.value) })} />
               </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="flex items-center gap-2 text-[13px]">
-                <input type="checkbox" className="accent-primary w-4 h-4"
-                       checked={editForm.supports_vision}
-                       onChange={(e) => setEditForm({ ...editForm, supports_vision: e.target.checked })} />
-                {t("supportsVision")}
-              </label>
-              <label className="flex items-center gap-2 text-[13px]">
-                <input type="checkbox" className="accent-primary w-4 h-4"
-                       checked={editForm.supports_image_generation}
-                       onChange={(e) => setEditForm({ ...editForm, supports_image_generation: e.target.checked })} />
-                Supports Image Generation
-              </label>
             </div>
 
             {editErr && (

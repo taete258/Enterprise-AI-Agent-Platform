@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { admin } from "@/lib/api";
 import PageHeader from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -24,11 +24,23 @@ export default function ToolsPage() {
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // Pagination state
+  const [page, setPage] = useState(0);
+  const [pageSize] = useState(20);
+  const [total, setTotal] = useState(0);
+
+  // Filter state
+  const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState("");
+
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTool, setEditingTool] = useState<any | null>(null);
   const [form, setForm] = useState({
     name: "", key: "", description: "", type: "api",
-    url: "", method: "GET", headers: "{}", schema_json: SCHEMA_TEMPLATES.empty
+    url: "", method: "GET", headers: "{}", schema_json: SCHEMA_TEMPLATES.empty,
+    capabilities: ["text"],
+    cost_per_1m_input_tokens: 0,
+    cost_per_1m_output_tokens: 0
   });
 
   const [testTarget, setTestTarget] = useState<any | null>(null);
@@ -38,22 +50,48 @@ export default function ToolsPage() {
 
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
 
-  async function load() {
+  const fetchTools = useCallback(async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      setTools(await admin.listTools());
+      const params = new URLSearchParams({
+        skip: (page * pageSize).toString(),
+        limit: pageSize.toString(),
+        ...(search && { search }),
+        ...(typeFilter && { type: typeFilter }),
+      });
+
+      const response = await admin.listTools(Object.fromEntries(params));
+      if (Array.isArray(response)) {
+        // Backward compatibility: if API returns array, paginate locally
+        const filtered = response.filter((tool) => {
+          if (search && !tool.name.toLowerCase().includes(search.toLowerCase()) &&
+              !tool.description?.toLowerCase().includes(search.toLowerCase())) return false;
+          if (typeFilter && tool.type !== typeFilter) return false;
+          return true;
+        });
+        setTotal(filtered.length);
+        setTools(filtered.slice(page * pageSize, (page + 1) * pageSize));
+      } else {
+        // New API returns paginated response
+        setTools(response.items || []);
+        setTotal(response.total || 0);
+      }
+      setErr("");
     } catch (e: any) {
       setErr(e.message);
+      setTools([]);
     } finally {
       setLoading(false);
     }
-  }
+  }, [page, pageSize, search, typeFilter]);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    fetchTools();
+  }, [fetchTools]);
 
   function handleOpenCreate() {
     setEditingTool(null);
-    setForm({ name: "", key: "", description: "", type: "api", url: "", method: "GET", headers: "{}", schema_json: SCHEMA_TEMPLATES.empty });
+    setForm({ name: "", key: "", description: "", type: "api", url: "", method: "GET", headers: "{}", schema_json: SCHEMA_TEMPLATES.empty, capabilities: ["text"], cost_per_1m_input_tokens: 0, cost_per_1m_output_tokens: 0 });
     setErr(""); setDialogOpen(true);
   }
 
@@ -62,7 +100,10 @@ export default function ToolsPage() {
     setForm({
       name: tool.name, key: tool.key, description: tool.description, type: tool.type,
       url: tool.url || "", method: tool.method || "GET", headers: tool.headers || "{}",
-      schema_json: tool.schema_json || SCHEMA_TEMPLATES.empty
+      schema_json: tool.schema_json || SCHEMA_TEMPLATES.empty,
+      capabilities: tool.capabilities || ["text"],
+      cost_per_1m_input_tokens: tool.cost_per_1m_input_tokens || 0,
+      cost_per_1m_output_tokens: tool.cost_per_1m_output_tokens || 0
     });
     setErr(""); setDialogOpen(true);
   }
@@ -75,15 +116,29 @@ export default function ToolsPage() {
       try { JSON.parse(form.headers); } catch (e) { throw new Error("Invalid JSON in HTTP Headers config"); }
       if (editingTool) { await admin.updateTool(editingTool.id, form); }
       else { await admin.createTool(form); }
-      setDialogOpen(false); load();
+      setDialogOpen(false); setPage(0); fetchTools();
     } catch (e: any) { setErr(e.message); }
   }
 
   async function confirmDelete() {
     if (!deleteTarget) return;
-    try { await admin.deleteTool(deleteTarget.id); setDeleteTarget(null); load(); }
+    try { await admin.deleteTool(deleteTarget.id); setDeleteTarget(null); setPage(0); fetchTools(); }
     catch (e: any) { setErr(e.message); setDeleteTarget(null); }
   }
+
+  const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setPage(0);
+    fetchTools();
+  };
+
+  const handleClearFilters = () => {
+    setSearch("");
+    setTypeFilter("");
+    setPage(0);
+  };
+
+  const totalPages = Math.ceil(total / pageSize);
 
   function handleOpenTest(tool: any) {
     setTestTarget(tool); setTestResult(null);
@@ -116,7 +171,7 @@ export default function ToolsPage() {
   return (
     <section className="pb-12">
       <PageHeader title={t("title")} subtitle={t("subtitle")} />
-      <div className="px-6 max-w-5xl mx-auto space-y-6">
+      <div className="px-6 max-w-6xl mx-auto space-y-4">
         {err && (
           <Alert variant="destructive">
             <AlertCircle className="size-4" /><AlertDescription>{err}</AlertDescription>
@@ -130,29 +185,95 @@ export default function ToolsPage() {
           </Button>
         </div>
 
+        {/* Filters */}
+        <Card className="p-4">
+          <form onSubmit={handleSearch} className="space-y-3">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+              <Input
+                type="text"
+                placeholder="Search by name or description..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="text-[13px]"
+              />
+
+              <select
+                value={typeFilter}
+                onChange={(e) => {
+                  setTypeFilter(e.target.value);
+                  setPage(0);
+                }}
+                className="text-[13px] px-3 py-2 rounded-md border border-input bg-background h-9"
+              >
+                <option value="">All Types</option>
+                <option value="api">API</option>
+                <option value="system">System</option>
+              </select>
+            </div>
+
+            <div className="flex gap-2">
+              <Button type="submit" size="sm" className="text-[13px]" disabled={loading}>
+                {loading ? "..." : "Search"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="text-[13px]"
+                onClick={handleClearFilters}
+              >
+                Clear
+              </Button>
+            </div>
+          </form>
+        </Card>
+
         <Card className="overflow-hidden">
           <table className="w-full text-[13px]">
             <thead>
               <tr className="bg-muted border-b border-border">
-                {[t("name"), t("key"), t("description"), t("type"), ""].map((h, i) => (
-                  <th key={i} className={`text-left px-4 py-3 text-[10.5px] font-semibold uppercase tracking-wider text-muted-foreground ${i === 0 ? "w-1/4" : i === 1 ? "w-1/5" : i === 2 ? "w-1/3" : ""}`}>{h}</th>
+                {[t("name"), t("key"), t("description"), t("type"), "Capabilities", "Cost", ""].map((h, i) => (
+                  <th key={i} className={`text-left px-4 py-4 text-[10.5px] font-semibold uppercase tracking-wider text-muted-foreground ${i === 0 ? "w-1/5" : i === 1 ? "w-1/6" : i === 2 ? "w-1/4" : ""}`}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {tools.map((tool) => (
                 <tr key={tool.id} className="border-b border-border hover:bg-accent/40 transition-colors">
-                  <td className="px-4 py-3 font-medium text-foreground">{tool.name}</td>
-                  <td className="px-4 py-3"><code className="text-[12px] bg-muted px-1.5 py-0.5 rounded text-primary">{tool.key}</code></td>
-                  <td className="px-4 py-3 text-muted-foreground line-clamp-2 max-w-xs">{tool.description}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-4 font-medium text-foreground">{tool.name}</td>
+                  <td className="px-4 py-4"><code className="text-[12px] bg-muted px-1.5 py-0.5 rounded text-primary">{tool.key}</code></td>
+                  <td className="px-4 py-4 text-muted-foreground line-clamp-3">{tool.description}</td>
+                  <td className="px-4 py-4">
                     {tool.type === "system" ? (
                       <Badge variant="secondary" className="gap-1"><Settings className="size-3" /> {t("system")}</Badge>
                     ) : (
                       <Badge variant="outline" className="gap-1 border-primary text-primary"><BookOpen className="size-3" /> {t("api")}</Badge>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-right">
+                  <td className="px-4 py-4">
+                    <div className="flex gap-1 flex-wrap">
+                      {tool.capabilities && tool.capabilities.length > 0 ? (
+                        tool.capabilities.map((cap: string) => (
+                          <Badge key={cap} variant="outline" className="text-[11px] capitalize">
+                            {cap}
+                          </Badge>
+                        ))
+                      ) : (
+                        <span className="text-[12px] text-muted-foreground">—</span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-4 py-4 text-[12px]">
+                    <div className="space-y-0.5">
+                      <div className="text-muted-foreground">
+                        <span className="font-medium">In:</span> ${(tool.cost_per_1m_input_tokens || 0).toFixed(4)}
+                      </div>
+                      <div className="text-muted-foreground">
+                        <span className="font-medium">Out:</span> ${(tool.cost_per_1m_output_tokens || 0).toFixed(4)}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-4 py-4 text-right">
                     <div className="flex items-center justify-end gap-1.5">
                       <Button size="icon" variant="ghost" onClick={() => handleOpenTest(tool)} title="Test Tool" className="size-8 text-primary hover:text-primary-hover hover:bg-primary/10 cursor-pointer">
                         <Play className="size-3.5 fill-current" />
@@ -171,12 +292,84 @@ export default function ToolsPage() {
               ))}
               {tools.length === 0 && !loading && (
                 <tr>
-                  <td colSpan={5} className="text-center py-10 text-muted-foreground">{t("noTools")}</td>
+                  <td colSpan={7} className="text-center py-10 text-muted-foreground">{t("noTools")}</td>
                 </tr>
               )}
             </tbody>
           </table>
         </Card>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between">
+            <div className="text-[13px] text-muted-foreground">
+              Showing {tools.length === 0 ? 0 : page * pageSize + 1}–{Math.min((page + 1) * pageSize, total)} of {total}
+            </div>
+            <div className="flex gap-2 items-center">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(Math.max(0, page - 1))}
+                disabled={page === 0 || loading}
+              >
+                Previous
+              </Button>
+              <div className="flex items-center gap-1 text-[12px]">
+                {page > 2 && (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPage(0)}
+                      disabled={loading}
+                      className="min-w-8"
+                    >
+                      1
+                    </Button>
+                    <span className="text-muted-foreground">...</span>
+                  </>
+                )}
+                {Array.from({ length: Math.min(5, totalPages) }).map((_, i) => {
+                  const pageNum = page <= 2 ? i : Math.min(page - 2 + i, totalPages - 1);
+                  return (
+                    <Button
+                      key={pageNum}
+                      variant={page === pageNum ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setPage(pageNum)}
+                      disabled={loading}
+                      className="min-w-8"
+                    >
+                      {pageNum + 1}
+                    </Button>
+                  );
+                })}
+                {page < totalPages - 3 && (
+                  <>
+                    <span className="text-muted-foreground">...</span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPage(totalPages - 1)}
+                      disabled={loading}
+                      className="min-w-8"
+                    >
+                      {totalPages}
+                    </Button>
+                  </>
+                )}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(Math.min(totalPages - 1, page + 1))}
+                disabled={page === totalPages - 1 || loading}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Create / Edit Dialog */}
@@ -214,6 +407,56 @@ export default function ToolsPage() {
                   <option value="api">{t("apiOption")}</option>
                   <option value="system">{t("systemOption")}</option>
                 </select>
+              </div>
+
+              <div className="space-y-1.5 col-span-2">
+                <Label>Model Capabilities</Label>
+                <div className="flex gap-3 flex-wrap p-3 rounded-md border border-input bg-transparent">
+                  {["text", "image", "audio", "video"].map((cap) => (
+                    <label key={cap} className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={form.capabilities?.includes(cap) || false}
+                        onChange={(e) => {
+                          const caps = form.capabilities || [];
+                          setForm({
+                            ...form,
+                            capabilities: e.target.checked
+                              ? [...caps, cap]
+                              : caps.filter((c) => c !== cap)
+                          });
+                        }}
+                        className="rounded border border-input"
+                      />
+                      <span className="text-[13px] capitalize">{cap}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 col-span-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="input-cost">Cost per 1M Input Tokens ($)</Label>
+                  <Input
+                    id="input-cost"
+                    type="number"
+                    step="0.0001"
+                    placeholder="0.50"
+                    value={form.cost_per_1m_input_tokens || ""}
+                    onChange={(e) => setForm({ ...form, cost_per_1m_input_tokens: parseFloat(e.target.value) || 0 })}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="output-cost">Cost per 1M Output Tokens ($)</Label>
+                  <Input
+                    id="output-cost"
+                    type="number"
+                    step="0.0001"
+                    placeholder="1.50"
+                    value={form.cost_per_1m_output_tokens || ""}
+                    onChange={(e) => setForm({ ...form, cost_per_1m_output_tokens: parseFloat(e.target.value) || 0 })}
+                  />
+                </div>
               </div>
 
               {form.type === "api" && (

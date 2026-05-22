@@ -3,15 +3,43 @@ from .base import ChatMessage, ChatCompletion
 
 
 class OpenAIClient:
-    def __init__(self, api_key: str, base_url: str = ""):
+    def __init__(self, api_key: str, base_url: str = "", kind: str = "openai"):
+        self._api_key = api_key
+        self._base_url = base_url
+        self._kind = kind
         kwargs = {"api_key": api_key}
         if base_url:
             kwargs["base_url"] = base_url
         self._c = OpenAI(**kwargs)
 
     def list_models(self) -> list[dict]:
+        if self._kind == "openrouter":
+            return self._list_openrouter_models()
         resp = self._c.models.list()
-        return [{"id": m.id, "display": m.id} for m in resp.data]
+        return [{"id": m.id, "display": m.id, "capabilities": []} for m in resp.data]
+
+    def _list_openrouter_models(self) -> list[dict]:
+        import httpx
+        headers = {"Authorization": f"Bearer {self._api_key}"}
+        resp = httpx.get("https://openrouter.ai/api/v1/models", headers=headers, timeout=15)
+        resp.raise_for_status()
+        data = resp.json().get("data", [])
+        result = []
+        for m in data:
+            arch = m.get("architecture", {})
+            in_mod = arch.get("input_modalities") or arch.get("modality", "").split("+")
+            out_mod = arch.get("output_modalities") or []
+            caps = []
+            if "text" in in_mod or "text" in out_mod:
+                caps.append("text")
+            if "image" in in_mod:
+                caps.append("vision")
+            if "image" in out_mod:
+                caps.append("image gen")
+            if "audio" in in_mod or "audio" in out_mod:
+                caps.append("audio")
+            result.append({"id": m["id"], "display": m.get("name", m["id"]), "capabilities": caps})
+        return result
 
     def test(self) -> dict:
         resp = self._c.models.list()

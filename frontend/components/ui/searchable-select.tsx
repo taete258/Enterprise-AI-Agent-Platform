@@ -3,10 +3,12 @@
 import * as React from "react";
 import { Check, ChevronDown, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { CAPABILITY_STYLES } from "@/lib/modelCapabilities";
 
 interface Option {
   id: string;
   display: string;
+  capabilities?: string[];
 }
 
 interface SearchableSelectProps {
@@ -129,17 +131,29 @@ export function SearchableSelect({
                       setIsOpen(false);
                     }}
                     className={cn(
-                      "relative flex w-full cursor-pointer select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none hover:bg-accent hover:text-accent-foreground text-left",
+                      "relative flex w-full cursor-pointer select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none hover:bg-accent hover:text-accent-foreground text-left gap-2",
                       isSelected && "bg-accent/40 font-medium"
                     )}
                   >
                     <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
                       {isSelected && <Check className="h-4 w-4 text-primary" />}
                     </span>
-                    <span className="truncate">{opt.display}</span>
-                    <span className="ml-2 text-xs text-muted-foreground truncate font-mono">
-                      ({opt.id})
-                    </span>
+                    <span className="truncate flex-1">{opt.display}</span>
+                    {opt.capabilities && opt.capabilities.length > 0 && (
+                      <span className="flex items-center gap-1 shrink-0">
+                        {opt.capabilities.map((cap) => (
+                          <span
+                            key={cap}
+                            className={cn(
+                              "inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium leading-none",
+                              CAPABILITY_STYLES[cap as keyof typeof CAPABILITY_STYLES] ?? "bg-muted text-muted-foreground"
+                            )}
+                          >
+                            {cap}
+                          </span>
+                        ))}
+                      </span>
+                    )}
                   </button>
                 );
               })
