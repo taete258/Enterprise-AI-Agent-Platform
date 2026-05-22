@@ -90,11 +90,24 @@ def list_sessions(
 
 
 @router.get("/{session_id}/messages", response_model=list[MessageOut])
-def list_messages(session_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+def list_messages(
+    session_id: int,
+    limit: int = 50,
+    before_id: int | None = None,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
     s = db.get(ChatSession, session_id)
     if not s or s.user_id != user.id:
         raise HTTPException(404)
-    return s.messages
+    from app.models.chat import Message
+    from sqlalchemy import select
+    q = select(Message).where(Message.session_id == session_id)
+    if before_id is not None:
+        q = q.where(Message.id < before_id)
+    q = q.order_by(Message.id.desc()).limit(limit)
+    rows = db.scalars(q).all()
+    return list(reversed(rows))
 
 
 @router.patch("/{session_id}", response_model=SessionOut)

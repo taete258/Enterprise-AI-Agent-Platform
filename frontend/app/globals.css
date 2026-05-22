@@ -48,6 +48,17 @@
   --animate-accordion-down: accordion-down 0.2s ease-out;
   --animate-accordion-up: accordion-up 0.2s ease-out;
   --animate-blink: blink 1.2s infinite both;
+  --animate-spinner-drop-in: spinner-drop-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  --animate-spinner-drop-out: spinner-drop-out 0.25s ease-in forwards;
+
+  @keyframes spinner-drop-in {
+    from { opacity: 0; transform: translateY(-16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes spinner-drop-out {
+    from { opacity: 1; transform: translateY(0); }
+    to   { opacity: 0; transform: translateY(-16px); }
+  }
 
   @keyframes accordion-down {
     from { height: 0; }

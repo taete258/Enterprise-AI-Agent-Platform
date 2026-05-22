@@ -142,7 +142,13 @@ export const knowledge = {
 export const sessions = {
   list: (includeArchived = false) =>
     api<any[]>(`/api/sessions${includeArchived ? "?include_archived=true" : ""}`),
-  messages: (id: number) => api<any[]>(`/api/sessions/${id}/messages`),
+  messages: (id: number, opts?: { limit?: number; before_id?: number }) => {
+    const p = new URLSearchParams();
+    if (opts?.limit) p.set("limit", String(opts.limit));
+    if (opts?.before_id) p.set("before_id", String(opts.before_id));
+    const qs = p.toString();
+    return api<any[]>(`/api/sessions/${id}/messages${qs ? "?" + qs : ""}`);
+  },
   update: (id: number, data: { title?: string; is_pinned?: boolean; is_archived?: boolean; group_id?: number | null }) =>
     api(`/api/sessions/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   listGroups: () => api<any[]>("/api/sessions/groups"),

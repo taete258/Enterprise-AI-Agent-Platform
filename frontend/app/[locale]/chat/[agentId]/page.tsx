@@ -10,7 +10,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Send, Settings, BookOpen, ChevronRight, Paperclip, X, FileText, ChevronLeft, Pin, Edit2, Trash2, MoreVertical, Link2Off } from "lucide-react";
+import { Send, Settings, BookOpen, ChevronRight, Paperclip, X, FileText, ChevronLeft, Pin, Edit2, Trash2, MoreVertical, Link2Off, Loader2, ArrowDown } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 
@@ -219,10 +219,20 @@ export default function ChatPage() {
   const [actionError, setActionError] = useState("");
   const [draggedSession, setDraggedSession] = useState<any | null>(null);
   const [groupToDelete, setGroupToDelete] = useState<any | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  // 'hidden' | 'entering' | 'exiting'
+  const [spinnerPhase, setSpinnerPhase] = useState<'hidden' | 'entering' | 'exiting'>('hidden');
+  const [showScrollBottom, setShowScrollBottom] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isLoadingMoreRef = useRef(false);
+  const hasMoreRef = useRef(false);
+  const initialScrollDoneRef = useRef(false);
+  const msgsRef = useRef<Msg[]>([]);
+  const loadSessionIdRef = useRef<number | undefined>(undefined);
+  const lastMsgCountRef = useRef(0);
 
   useEffect(() => { agents.get(id).then(setAgent).catch(() => { }); }, [id]);
   useEffect(() => { llm.models().then(setModels).catch(() => { }); }, []);
@@ -410,19 +420,27 @@ export default function ChatPage() {
     }
   }, [renameTarget]);
 
+  const PAGE_SIZE = 50;
+
+  function mapMsg(m: any): Msg {
+    return {
+      id: m.id,
+      role: m.role, content: m.content, citations: m.citations,
+      tokens_in: m.tokens_in, tokens_out: m.tokens_out,
+      tool_calls: m.tool_calls, tool_call_id: m.tool_call_id,
+      attachments: parseAttachments(m.attachments),
+    };
+  }
+
   useEffect(() => {
     if (sessionIdQuery) {
       const sId = Number(sessionIdQuery);
       setSessionId(sId);
-      sessions.messages(sId)
+      initialScrollDoneRef.current = false;
+      sessions.messages(sId, { limit: PAGE_SIZE })
         .then((data) => {
-          setMsgs(data.map((m: any) => ({
-            id: m.id,
-            role: m.role, content: m.content, citations: m.citations,
-            tokens_in: m.tokens_in, tokens_out: m.tokens_out,
-            tool_calls: m.tool_calls, tool_call_id: m.tool_call_id,
-            attachments: parseAttachments(m.attachments),
-          })));
+          setMsgs(data.map(mapMsg));
+          setHasMore(data.length === PAGE_SIZE);
         }).catch(() => { });
     } else {
       const isNew = searchParams ? searchParams.get("new") === "true" : false;
@@ -435,12 +453,118 @@ export default function ChatPage() {
       }
       setSessionId(undefined);
       setMsgs([]);
+      setHasMore(false);
     }
   }, [id, sessionIdQuery, sessionsList, searchParams, router]);
 
+  useEffect(() => { hasMoreRef.current = hasMore; }, [hasMore]);
+  useEffect(() => { msgsRef.current = msgs; }, [msgs]);
+
+  // Jump to bottom on initial load; smooth scroll to bottom whenever a new message is appended
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+    if (isLoadingMoreRef.current || !scrollRef.current) return;
+    const el = scrollRef.current;
+    if (!initialScrollDoneRef.current) {
+      el.scrollTop = el.scrollHeight;
+      initialScrollDoneRef.current = true;
+      lastMsgCountRef.current = msgs.length;
+      return;
+    }
+    const grew = msgs.length > lastMsgCountRef.current;
+    lastMsgCountRef.current = msgs.length;
+    if (grew || busy) {
+      el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    }
   }, [msgs, busy]);
+
+  // Scroll listener — triggers load when user scrolls within 80px of the top
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || !sessionId) return;
+
+    const MIN_MS = 350;
+    const EXIT_MS = 200;
+    const loadForSession = sessionId;
+
+    function loadOlder() {
+      if (isLoadingMoreRef.current || !hasMoreRef.current) return;
+      const oldestId = msgsRef.current[0]?.id;
+      if (!oldestId) return;
+
+      isLoadingMoreRef.current = true;
+      loadSessionIdRef.current = loadForSession;
+      setSpinnerPhase('entering');
+      const startedAt = Date.now();
+
+      sessions.messages(loadForSession, { limit: PAGE_SIZE, before_id: oldestId })
+        .then((data) => {
+          // Drop result if user switched sessions mid-flight
+          if (loadSessionIdRef.current !== loadForSession) return;
+
+          const fetched = data.map(mapMsg);
+          const nextHasMore = data.length === PAGE_SIZE;
+
+          const finish = () => {
+            setSpinnerPhase('exiting');
+            setTimeout(() => {
+              if (fetched.length === 0) {
+                hasMoreRef.current = false;
+                setHasMore(false);
+                setSpinnerPhase('hidden');
+                isLoadingMoreRef.current = false;
+                return;
+              }
+              // Capture position BEFORE the prepend + spinner-hide commit
+              const sc = scrollRef.current;
+              const prevHeight = sc?.scrollHeight ?? 0;
+              const prevScrollTop = sc?.scrollTop ?? 0;
+
+              hasMoreRef.current = nextHasMore;
+              setHasMore(nextHasMore);
+              setMsgs((prev) => [...fetched, ...prev]);
+              setSpinnerPhase('hidden');
+
+              requestAnimationFrame(() => {
+                const sc2 = scrollRef.current;
+                if (sc2) {
+                  sc2.scrollTop = prevScrollTop + (sc2.scrollHeight - prevHeight);
+                }
+                isLoadingMoreRef.current = false;
+              });
+            }, EXIT_MS);
+          };
+
+          // Skip the artificial delay when there's nothing to show
+          if (fetched.length === 0) {
+            finish();
+            return;
+          }
+          const wait = Math.max(0, MIN_MS - (Date.now() - startedAt));
+          if (wait === 0) finish();
+          else setTimeout(finish, wait);
+        })
+        .catch(() => {
+          setSpinnerPhase('hidden');
+          isLoadingMoreRef.current = false;
+        });
+    }
+
+    function onScroll() {
+      const distanceFromBottom = el!.scrollHeight - el!.scrollTop - el!.clientHeight;
+      setShowScrollBottom(distanceFromBottom > 240);
+      if (!hasMoreRef.current || isLoadingMoreRef.current) return;
+      if (el!.scrollTop < 80) loadOlder();
+    }
+
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      el.removeEventListener('scroll', onScroll);
+      // Invalidate any in-flight load for this session
+      if (loadSessionIdRef.current === loadForSession) {
+        loadSessionIdRef.current = undefined;
+      }
+    };
+  }, [sessionId]);
 
   function autosize() {
     const ta = taRef.current; if (!ta) return;
@@ -464,14 +588,9 @@ export default function ChatPage() {
     try {
       const r = await agents.chat({ session_id: sessionId, agent_id: id, message: text, files });
       setSessionId(r.session_id);
-      const freshData = await sessions.messages(r.session_id);
-      setMsgs(freshData.map((m: any) => ({
-        id: m.id,
-        role: m.role, content: m.content, citations: m.citations,
-        tokens_in: m.tokens_in, tokens_out: m.tokens_out,
-        tool_calls: m.tool_calls, tool_call_id: m.tool_call_id,
-        attachments: parseAttachments(m.attachments),
-      })));
+      const freshData = await sessions.messages(r.session_id, { limit: PAGE_SIZE });
+      setMsgs(freshData.map(mapMsg));
+      setHasMore(freshData.length === PAGE_SIZE);
       if (!sessionId) {
         router.replace(`/chat/${id}?session_id=${r.session_id}` as any);
       }
@@ -523,74 +642,27 @@ export default function ChatPage() {
                 {t("newChat")}
               </Button>
             </div>
-            <div className="flex-1 overflow-y-auto p-2 space-y-1">
+            <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
               {sessionsList.length === 0 ? (
-                <p className="text-[11.5px] text-muted-foreground p-3 text-center">{t("noHistory")}</p>
+                <div className="flex-1 overflow-y-auto p-2">
+                  <p className="text-[11.5px] text-muted-foreground p-3 text-center">{t("noHistory")}</p>
+                </div>
               ) : (
                 <>
-                  {sessionsList.some((s) => s.is_pinned) && (
-                    <div>
-                      <div className="px-3 mt-3 mb-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
-                        Pinned
-                      </div>
-                      <div>
-                        {sessionsList
-                          .filter((s) => s.is_pinned && !s.is_archived)
-                          .map((s, idx, arr) => (
-                            <div key={s.id} className={idx < arr.length - 1 ? "border-b border-border" : ""}>
-                              <SessionListItem
-                                session={s}
-                                agent={ags[s.agent_id]}
-                                isActive={sessionId === s.id}
-                                onNavigate={() => router.push(`/chat/${s.agent_id}?session_id=${s.id}` as any)}
-                                onRename={() => setRenameTarget(s)}
-                                onPin={() => handleTogglePin(s.id, !s.is_pinned)}
-                                onDelete={() => setDeleteTarget(s)}
-                                onDragStart={handleSessionDragStart(s)}
-                              />
-                            </div>
-                          ))}
-                      </div>
+                  {/* Top Zone: Pinned Sessions */}
+                  <div className="flex-shrink-0 overflow-y-auto border-b border-border">
+                    <div className="px-3 py-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+                      Pinned
                     </div>
-                  )}
-
-                  {groups.map((group) => {
-                    const groupSessions = sessionsList.filter(
-                      (s) => s.group_id === group.id && !s.is_archived
-                    );
-                    return (
-                      <div
-                        key={group.id}
-                        onDragOver={(e) => {
-                          e.preventDefault();
-                          e.dataTransfer.dropEffect = "move";
-                        }}
-                        onDrop={handleGroupDrop(group.id)}
-                        className={`border border-border rounded-md p-2 mt-2 ${getGroupBgColor(group.id)}`}
-                      >
-                        <div className="flex items-center justify-between group/header mb-1">
-                          <div className="flex items-center gap-2 flex-1">
-                            <div className="w-2 h-2 rounded-full bg-primary/70"></div>
-                            <div className="text-[10px] font-semibold text-foreground uppercase tracking-wide">
-                              {group.name}
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-0.5 opacity-0 group-hover/header:opacity-100 transition-opacity">
-                            <div
-                              onClick={() => setGroupToDelete(group)}
-                              className="p-1 rounded cursor-pointer hover:bg-accent/50 transition-colors"
-                              title="Delete group"
-                            >
-                              <Trash2 className="size-3 text-muted-foreground hover:text-red-600" />
-                            </div>
-                          </div>
-                        </div>
-                        <div className="min-h-[20px]">
-                          {groupSessions.length === 0 ? (
-                            <p className="text-[11.5px] text-muted-foreground/60 p-3 text-center italic">{t("emptyGroup")}</p>
-                          ) : (
-                            groupSessions.map((s, idx) => (
-                              <div key={s.id} className={idx < groupSessions.length - 1 ? "border-b border-border" : ""}>
+                    <div className="px-2">
+                      {sessionsList.filter((s) => s.is_pinned && !s.is_archived).length === 0 ? (
+                        <p className="text-[11.5px] text-muted-foreground/60 p-3 text-center italic">No pinned chats</p>
+                      ) : (
+                        <div>
+                          {sessionsList
+                            .filter((s) => s.is_pinned && !s.is_archived)
+                            .map((s, idx, arr) => (
+                              <div key={s.id} className={idx < arr.length - 1 ? "border-b border-border" : ""}>
                                 <SessionListItem
                                   session={s}
                                   agent={ags[s.agent_id]}
@@ -602,27 +674,107 @@ export default function ChatPage() {
                                   onDragStart={handleSessionDragStart(s)}
                                 />
                               </div>
-                            ))
-                          )}
+                            ))}
                         </div>
-                      </div>
-                    );
-                  })}
-
-                  <div
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      e.dataTransfer.dropEffect = "move";
-                    }}
-                    onDrop={handleUngroupDrop}
-                  >
-                    <div className="px-3 mt-3 mb-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-2">
-                      <Link2Off className="size-3" />
-                      Ungroup
+                      )}
                     </div>
-                    <div className="min-h-[20px]">
+                  </div>
+
+                  {/* Center Zone: Groups */}
+                  <div className="flex-1 min-h-0 flex flex-col overflow-hidden border-b border-border">
+                    <div className="px-3 py-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide flex-shrink-0">
+                      Groups
+                    </div>
+                    <div className="flex-1 overflow-y-auto px-2 pb-2">
+                      {groups.length === 0 ? (
+                        <p className="text-[11.5px] text-muted-foreground/60 p-3 text-center italic">No groups yet</p>
+                      ) : (
+                        <div className="space-y-1">
+                          {groups.map((group) => {
+                            const groupSessions = sessionsList.filter(
+                              (s) => s.group_id === group.id && !s.is_archived
+                            );
+                            return (
+                              <div
+                                key={group.id}
+                                onDragOver={(e) => {
+                                  e.preventDefault();
+                                  e.dataTransfer.dropEffect = "move";
+                                }}
+                                onDrop={handleGroupDrop(group.id)}
+                                className={`border border-border rounded-md p-2 ${getGroupBgColor(group.id)}`}
+                              >
+                                <div className="flex items-center justify-between group/header mb-1">
+                                  <div className="flex items-center gap-2 flex-1">
+                                    <div className="w-2 h-2 rounded-full bg-primary/70"></div>
+                                    <div className="text-[10px] font-semibold text-foreground uppercase tracking-wide">
+                                      {group.name}
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-0.5 opacity-0 group-hover/header:opacity-100 transition-opacity">
+                                    <div
+                                      onClick={() => setGroupToDelete(group)}
+                                      className="p-1 rounded cursor-pointer hover:bg-accent/50 transition-colors"
+                                      title="Delete group"
+                                    >
+                                      <Trash2 className="size-3 text-muted-foreground hover:text-red-600" />
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="min-h-[20px]">
+                                  {groupSessions.length === 0 ? (
+                                    <p className="text-[11.5px] text-muted-foreground/60 p-3 text-center italic">{t("emptyGroup")}</p>
+                                  ) : (
+                                    groupSessions.map((s, idx) => (
+                                      <div key={s.id} className={idx < groupSessions.length - 1 ? "border-b border-border" : ""}>
+                                        <SessionListItem
+                                          session={s}
+                                          agent={ags[s.agent_id]}
+                                          isActive={sessionId === s.id}
+                                          onNavigate={() => router.push(`/chat/${s.agent_id}?session_id=${s.id}` as any)}
+                                          onRename={() => setRenameTarget(s)}
+                                          onPin={() => handleTogglePin(s.id, !s.is_pinned)}
+                                          onDelete={() => setDeleteTarget(s)}
+                                          onDragStart={handleSessionDragStart(s)}
+                                        />
+                                      </div>
+                                    ))
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                    <div className="px-2 pb-2 border-t border-border flex-shrink-0">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full text-[11px] h-7"
+                        onClick={() => setShowNewGroupDialog(true)}
+                      >
+                        + Create Group
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Bottom Zone: Ungrouped Sessions */}
+                  <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+                    <div className="px-3 py-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-2 flex-shrink-0">
+                      <Link2Off className="size-3" />
+                      Ungrouped
+                    </div>
+                    <div
+                      className="flex-1 overflow-y-auto px-2"
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = "move";
+                      }}
+                      onDrop={handleUngroupDrop}
+                    >
                       {sessionsList.some((s) => !s.group_id && !s.is_pinned && !s.is_archived) ? (
-                        <div>
+                        <div className="space-y-1">
                           {sessionsList
                             .filter((s) => !s.group_id && !s.is_pinned && !s.is_archived)
                             .map((s, idx, arr) => (
@@ -644,18 +796,6 @@ export default function ChatPage() {
                         <p className="text-[11.5px] text-muted-foreground/60 p-3 text-center italic">Drag here to ungroup</p>
                       )}
                     </div>
-                  </div>
-
-
-                  <div className="px-2 pt-2 border-t border-border">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full text-[11px] h-7"
-                      onClick={() => setShowNewGroupDialog(true)}
-                    >
-                      + Create Group
-                    </Button>
                   </div>
                 </>
               )}
@@ -689,15 +829,7 @@ export default function ChatPage() {
           <Topbar
             title={
               <span className="flex items-center gap-2">
-                <span className="w-5 h-5 rounded-md bg-accent text-accent-foreground grid place-items-center font-serif text-[11px]">
-                  {agent?.name?.[0]?.toUpperCase() || "A"}
-                </span>
-                <span className="font-medium">{agent?.name ?? "Agent"}</span>
-              </span>
-            }
-            subtitle={
-              <span className="flex items-center gap-2 mt-0.5">
-                <span className="truncate max-w-[280px]">{agent?.description}</span>
+                <span className="font-medium text-md">{agent?.name ?? "Agent"}</span>
                 {agent && (
                   <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9.5px] font-medium bg-primary/10 text-primary border border-primary/20 font-mono">
                     {models.find((m) => m.id === agent.model_id)?.display_name || `Model #${agent.model_id}`}
@@ -705,18 +837,57 @@ export default function ChatPage() {
                 )}
               </span>
             }
+            subtitle={
+              <span className="flex items-center gap-2 mt-0.5">
+                <span className="truncate max-w-[280px]">{agent?.description}</span>
+              </span>
+            }
             right={<span className="font-mono text-[10.5px] text-muted-foreground">{sessionId ? t("sessionLabel", { id: sessionId }) : t("newChatLabel")}</span>}
           />
 
-          <div className="flex-1 flex flex-col min-h-0">
+          <div className="flex-1 flex flex-col min-h-0 relative">
+            {showScrollBottom && (
+              <Button
+                type="button"
+                size="icon"
+                variant="outline"
+                onClick={() => {
+                  const el = scrollRef.current;
+                  if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+                }}
+                className="absolute bottom-36 left-1/2 -translate-x-1/2 z-20 h-9 w-9 rounded-full shadow-lg border bg-background/95 backdrop-blur hover:bg-accent"
+                aria-label="Scroll to bottom"
+                title="Scroll to bottom"
+              >
+                <ArrowDown className="size-4" />
+              </Button>
+            )}
             <div ref={scrollRef} className="flex-1 overflow-y-auto">
               <div className="max-w-3xl mx-auto px-6 py-8">
-                {msgs.length === 0 ? (
+                {msgs.length === 0 && !busy ? (
                   <Welcome name={agent?.name} />
                 ) : (
-                  <div className="divide-y divide-border/60">
+                  <div>
+                    {/* Spinner: drop in from above, exit up */}
+                    {spinnerPhase !== 'hidden' && (
+                      <div
+                        className="py-4 flex justify-center overflow-hidden"
+                        style={{
+                          animation: spinnerPhase === 'exiting'
+                            ? 'spinner-drop-out 0.28s ease-in forwards'
+                            : 'spinner-drop-in 0.3s cubic-bezier(0.34,1.56,0.64,1) forwards',
+                        }}
+                      >
+                        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+                      </div>
+                    )}
+
                     {msgs.map((m, i) => (
-                      <div key={i} className={`py-6 ${i === 0 ? "pt-0" : ""} ${i === msgs.length - 1 && !busy ? "pb-0" : ""}`}>
+                      <div
+                        key={m.id ?? i}
+                        data-msg-id={i === 0 && m.id ? m.id : undefined}
+                        className={`py-6 ${i === 0 ? "pt-0" : ""} ${i === msgs.length - 1 && !busy ? "pb-0" : ""}`}
+                      >
                         <Bubble msg={m} msgs={msgs} msgIndex={i} />
                       </div>
                     ))}
@@ -977,11 +1148,10 @@ function SessionListItem({
     <div
       draggable
       onDragStart={onDragStart}
-      className={`w-full text-left px-3 py-2 rounded-md transition-colors flex items-center gap-1 group cursor-move ${
-        isActive
-          ? "bg-accent text-accent-foreground font-medium"
-          : "text-muted-foreground hover:bg-accent/40"
-      }`}
+      className={`w-full text-left px-3 py-2 rounded-md transition-colors flex items-center gap-1 group cursor-move ${isActive
+        ? "bg-accent text-accent-foreground font-medium"
+        : "text-muted-foreground hover:bg-accent/40"
+        }`}
     >
       <button onClick={onNavigate} className="flex-1 min-w-0 text-left">
         <span className="text-[12.5px] truncate block text-foreground font-medium">
