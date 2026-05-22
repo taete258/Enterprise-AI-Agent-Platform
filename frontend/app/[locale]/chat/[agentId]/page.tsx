@@ -10,7 +10,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Send, Settings, BookOpen, ChevronRight, Paperclip, X, FileText, ChevronLeft, Pin, Edit2, Trash2, MoreVertical, Link2Off, Loader2, ArrowDown } from "lucide-react";
+import { Send, Settings, BookOpen, ChevronRight, Paperclip, X, FileText, ChevronLeft, Pin, Edit2, Trash2, MoreVertical, Link2Off, Loader2, ArrowDown, Plus } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 
@@ -224,6 +224,17 @@ export default function ChatPage() {
   const [spinnerPhase, setSpinnerPhase] = useState<'hidden' | 'entering' | 'exiting'>('hidden');
   const [showScrollBottom, setShowScrollBottom] = useState(false);
 
+  // Zone height management for resizable sidebar
+  const [pinnedHeight, setPinnedHeight] = useState<number | null>(null);
+  const [groupsHeight, setGroupsHeight] = useState<number | null>(null);
+  const resizeRef = useRef<{ isResizing: boolean; startY: number; startPinnedH: number; startGroupsH: number; sidebarHeight: number }>({
+    isResizing: false,
+    startY: 0,
+    startPinnedH: 0,
+    startGroupsH: 0,
+    sidebarHeight: 0,
+  });
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -247,6 +258,71 @@ export default function ChatPage() {
     } catch (e) { }
   }
   useEffect(() => { loadTools(); }, [id]);
+
+  // Initialize zone heights from localStorage
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const saved = localStorage.getItem('chatSidebarZoneHeights');
+    if (saved) {
+      try {
+        const { pinned, groups } = JSON.parse(saved);
+        setPinnedHeight(pinned);
+        setGroupsHeight(groups);
+      } catch { }
+    }
+  }, []);
+
+  // Save zone heights to localStorage
+  const saveHeights = (pHeight: number, gHeight: number) => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem('chatSidebarZoneHeights', JSON.stringify({ pinned: pHeight, groups: gHeight }));
+  };
+
+  const handleResizeStart = (resizeType: 'pinned-groups' | 'groups-ungrouped') => (e: React.MouseEvent) => {
+    const sidebar = document.querySelector('aside');
+    if (!sidebar) return;
+    const sidebarRect = sidebar.getBoundingClientRect();
+    const headerHeight = 60;
+    const availHeight = sidebarRect.height - headerHeight;
+
+    const startPinnedH = pinnedHeight || Math.floor(availHeight * 0.25);
+    const startGroupsH = groupsHeight || Math.floor(availHeight * 0.5);
+
+    resizeRef.current.isResizing = true;
+    resizeRef.current.startY = e.clientY;
+    resizeRef.current.sidebarHeight = availHeight;
+    resizeRef.current.startPinnedH = startPinnedH;
+    resizeRef.current.startGroupsH = startGroupsH;
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      if (!resizeRef.current.isResizing) return;
+      const delta = moveEvent.clientY - resizeRef.current.startY;
+      const minHeight = 60;
+
+      if (resizeType === 'pinned-groups') {
+        const newPinnedH = Math.max(minHeight, resizeRef.current.startPinnedH + delta);
+        const newGroupsH = Math.max(minHeight, resizeRef.current.sidebarHeight - newPinnedH - minHeight);
+        setPinnedHeight(newPinnedH);
+        setGroupsHeight(newGroupsH);
+      } else {
+        const delta = moveEvent.clientY - resizeRef.current.startY;
+        const newGroupsH = Math.max(minHeight, resizeRef.current.startGroupsH + delta);
+        setGroupsHeight(newGroupsH);
+      }
+    };
+
+    const handleMouseUp = () => {
+      resizeRef.current.isResizing = false;
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      if (pinnedHeight && groupsHeight) {
+        saveHeights(pinnedHeight, groupsHeight);
+      }
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
 
   const canEdit = !!(user && agent && (user.is_superuser || agent.owner_id === user.id));
 
@@ -650,11 +726,11 @@ export default function ChatPage() {
               ) : (
                 <>
                   {/* Top Zone: Pinned Sessions */}
-                  <div className="flex-shrink-0 overflow-y-auto border-b border-border">
-                    <div className="px-3 py-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+                  <div className="flex-shrink-0 flex flex-col border-b border-border overflow-hidden" style={{ height: pinnedHeight ? `${pinnedHeight}px` : '25%' }}>
+                    <div className="px-3 py-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide flex-shrink-0">
                       Pinned
                     </div>
-                    <div className="px-2">
+                    <div className="flex-1 overflow-y-auto px-2">
                       {sessionsList.filter((s) => s.is_pinned && !s.is_archived).length === 0 ? (
                         <p className="text-[11.5px] text-muted-foreground/60 p-3 text-center italic">No pinned chats</p>
                       ) : (
@@ -662,7 +738,7 @@ export default function ChatPage() {
                           {sessionsList
                             .filter((s) => s.is_pinned && !s.is_archived)
                             .map((s, idx, arr) => (
-                              <div key={s.id} className={idx < arr.length - 1 ? "border-b border-border" : ""}>
+                              <div key={s.id} className="">
                                 <SessionListItem
                                   session={s}
                                   agent={ags[s.agent_id]}
@@ -680,10 +756,25 @@ export default function ChatPage() {
                     </div>
                   </div>
 
+                  {/* Resize Handle 1 */}
+                  <div
+                    onMouseDown={handleResizeStart('pinned-groups')}
+                    className="h-1 bg-border hover:bg-primary cursor-row-resize flex-shrink-0 transition-colors"
+                    title="Drag to resize"
+                  />
+
                   {/* Center Zone: Groups */}
-                  <div className="flex-1 min-h-0 flex flex-col overflow-hidden border-b border-border">
-                    <div className="px-3 py-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide flex-shrink-0">
-                      Groups
+                  <div className="flex-1 min-h-0 flex flex-col overflow-hidden border-b border-border" style={{ height: groupsHeight ? `${groupsHeight}px` : 'auto' }}>
+                    <div className="px-3 py-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide flex-shrink-0 flex items-center justify-between">
+                      <span>Groups</span>
+                      <button
+                        onClick={() => setShowNewGroupDialog(true)}
+                        className="p-0.5 rounded hover:bg-accent/50 transition-colors flex-shrink-0"
+                        title="Create group"
+                        aria-label="Create group"
+                      >
+                        <Plus className="size-3.5 text-muted-foreground hover:text-foreground" />
+                      </button>
                     </div>
                     <div className="flex-1 overflow-y-auto px-2 pb-2">
                       {groups.length === 0 ? (
@@ -747,17 +838,14 @@ export default function ChatPage() {
                         </div>
                       )}
                     </div>
-                    <div className="px-2 pb-2 border-t border-border flex-shrink-0">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full text-[11px] h-7"
-                        onClick={() => setShowNewGroupDialog(true)}
-                      >
-                        + Create Group
-                      </Button>
-                    </div>
                   </div>
+
+                  {/* Resize Handle 2 */}
+                  <div
+                    onMouseDown={handleResizeStart('groups-ungrouped')}
+                    className="h-1 bg-border hover:bg-primary cursor-row-resize flex-shrink-0 transition-colors"
+                    title="Drag to resize"
+                  />
 
                   {/* Bottom Zone: Ungrouped Sessions */}
                   <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
@@ -778,7 +866,7 @@ export default function ChatPage() {
                           {sessionsList
                             .filter((s) => !s.group_id && !s.is_pinned && !s.is_archived)
                             .map((s, idx, arr) => (
-                              <div key={s.id} className={idx < arr.length - 1 ? "border-b border-border" : ""}>
+                              <div key={s.id} className="">
                                 <SessionListItem
                                   session={s}
                                   agent={ags[s.agent_id]}
@@ -1148,12 +1236,12 @@ function SessionListItem({
     <div
       draggable
       onDragStart={onDragStart}
-      className={`w-full text-left px-3 py-2 rounded-md transition-colors flex items-center gap-1 group cursor-move ${isActive
+      className={`w-full text-left px-3 py-2 rounded-md transition-colors flex items-center gap-1 group cursor-move hover:cursor-pointer ${isActive
         ? "bg-accent text-accent-foreground font-medium"
         : "text-muted-foreground hover:bg-accent/40"
         }`}
     >
-      <button onClick={onNavigate} className="flex-1 min-w-0 text-left">
+      <button onClick={onNavigate} className="flex-1 min-w-0 text-left cursor-pointer">
         <span className="text-[12.5px] truncate block text-foreground font-medium">
           {session.title}
         </span>
