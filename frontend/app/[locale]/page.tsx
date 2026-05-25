@@ -21,12 +21,18 @@ export default function LoginPage() {
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
   const [redirectPath, setRedirectPath] = useState("/agents");
+  const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
-      const from = params.get("from");
+      let from = params.get("from");
       if (from && from !== "/unauthorized") {
+        // Remove locale prefix if it exists
+        const localeMatch = from.match(/^\/(en|th)(\/|$)/);
+        if (localeMatch) {
+          from = from.substring(localeMatch[1].length + 1) || "/agents";
+        }
         setRedirectPath(from);
       }
     }
@@ -34,12 +40,17 @@ export default function LoginPage() {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setErr(""); setLoading(true);
+    setErr("");
+    setHasError(false);
+    setLoading(true);
     try {
       const { access_token } = await auth.login(email, password);
       localStorage.setItem("token", access_token);
       router.push(redirectPath as any);
-    } catch (e: any) { setErr(e.message || "Login failed"); }
+    } catch (e: any) {
+      setErr(t("invalidCredentials") || "Invalid email or password");
+      setHasError(true);
+    }
     finally { setLoading(false); }
   }
 
@@ -110,7 +121,7 @@ export default function LoginPage() {
           <form onSubmit={onSubmit} className="space-y-4">
             {/* Email Field */}
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-sm font-semibold text-foreground">
+              <Label htmlFor="email" className={`text-sm font-semibold ${hasError ? "text-destructive" : "text-foreground"}`}>
                 {t("email")}
               </Label>
               <Input
@@ -120,14 +131,21 @@ export default function LoginPage() {
                 required
                 placeholder="your@email.com"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="h-11 rounded-lg border-border bg-card px-4 text-base placeholder:text-muted-foreground focus:ring-2 focus:ring-primary/50 focus:ring-offset-0"
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  if (hasError) setHasError(false);
+                }}
+                className={`h-11 rounded-lg bg-card px-4 text-base placeholder:text-muted-foreground focus:ring-2 focus:ring-offset-0 ${hasError
+                  ? "border-destructive border-2 focus:ring-destructive/50"
+                  : "border-border focus:ring-primary/50"
+                  }`}
               />
+              {hasError && <p className="text-xs text-destructive font-medium">{t("email")} {t("isRequired") || "is invalid"}</p>}
             </div>
 
             {/* Password Field */}
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-sm font-semibold text-foreground">
+              <Label htmlFor="password" className={`text-sm font-semibold ${hasError ? "text-destructive" : "text-foreground"}`}>
                 {t("password")}
               </Label>
               <div className="relative">
@@ -138,8 +156,14 @@ export default function LoginPage() {
                   required
                   placeholder="••••••••"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="h-11 rounded-lg border-border bg-card px-4 pr-11 text-base placeholder:text-muted-foreground focus:ring-2 focus:ring-primary/50 focus:ring-offset-0"
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    if (hasError) setHasError(false);
+                  }}
+                  className={`h-11 rounded-lg bg-card px-4 pr-11 text-base placeholder:text-muted-foreground focus:ring-2 focus:ring-offset-0 ${hasError
+                    ? "border-destructive border-2 focus:ring-destructive/50"
+                    : "border-border focus:ring-primary/50"
+                    }`}
                 />
                 <button
                   type="button"
@@ -150,14 +174,15 @@ export default function LoginPage() {
                   {showPassword ? <EyeOff className="size-5" /> : <Eye className="size-5" />}
                 </button>
               </div>
+              {hasError && <p className="text-xs text-destructive font-medium">{t("password")} {t("isIncorrect") || "is incorrect"}</p>}
             </div>
 
             {/* Error Alert */}
             {err && (
-              <Alert variant="destructive" className="mt-4 rounded-lg">
-                <AlertCircle className="size-4" />
-                <AlertDescription>{err}</AlertDescription>
-              </Alert>
+              <div className="mt-4 p-4 rounded-lg border border-destructive/50 bg-destructive/5 flex items-start gap-3">
+                <AlertCircle className="size-5 text-destructive flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-destructive font-medium">{err}</p>
+              </div>
             )}
 
             {/* Submit Button */}

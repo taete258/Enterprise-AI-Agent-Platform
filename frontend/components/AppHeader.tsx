@@ -2,8 +2,11 @@
 import { Link, usePathname, useRouter } from "@/i18n/routing";
 import { useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
+import { LogOut } from "lucide-react";
 import Logo from "./Logo";
 import LocaleSwitcher from "./LocaleSwitcher";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 export default function AppHeader() {
   const router = useRouter();
@@ -11,6 +14,7 @@ export default function AppHeader() {
   const locale = useLocale();
   const t = useTranslations("Navigation");
   const [email, setEmail] = useState<string>("");
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   const TABS = [
     { href: "/agents" as const, label: t("agents") },
@@ -26,7 +30,12 @@ export default function AppHeader() {
     } catch {}
   }, []);
 
-  function logout() {
+  function handleLogoutClick() {
+    setShowLogoutConfirm(true);
+  }
+
+  function confirmLogout() {
+    setShowLogoutConfirm(false);
     localStorage.removeItem("token");
     router.push("/");
   }
@@ -57,9 +66,35 @@ export default function AppHeader() {
             </div>
           )}
           <LocaleSwitcher currentLocale={locale} />
-          <button onClick={logout} className="btn-ghost !py-1.5 !px-3 text-xs">{t("logout")}</button>
+          <button onClick={handleLogoutClick} className="btn-ghost !py-1.5 !px-3 text-xs">{t("logout")}</button>
         </div>
       </div>
+
+      <Dialog open={showLogoutConfirm} onOpenChange={setShowLogoutConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("confirmLogout")}</DialogTitle>
+            <DialogDescription>
+              {t("confirmLogoutMessage")}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setShowLogoutConfirm(false)}
+            >
+              {t("cancel")}
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmLogout}
+            >
+              <LogOut className="size-4 mr-2" />
+              {t("logout")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </header>
   );
 }

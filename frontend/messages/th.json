@@ -14,7 +14,10 @@
     "feature2Title": "พร้อมใช้งานตลอดเวลา",
     "feature2Desc": "เข้าถึง Agents ของคุณได้ทุกเมื่อ ทุกที่",
     "showPassword": "แสดงรหัสผ่าน",
-    "hidePassword": "ซ่อนรหัสผ่าน"
+    "hidePassword": "ซ่อนรหัสผ่าน",
+    "isRequired": "ไม่ถูกต้อง",
+    "isIncorrect": "ไม่ถูกต้อง",
+    "invalidCredentials": "อีเมลหรือรหัสผ่านไม่ถูกต้อง"
   },
   "UnauthorizedPage": {
     "title": "ปฏิเสธการเข้าถึง",
@@ -38,7 +41,10 @@
     "usage": "Usage",
     "auditLog": "Audit log",
     "checkingAuth": "กำลังตรวจสอบสิทธิ์…",
-    "logout": "ออกจากระบบ"
+    "logout": "ออกจากระบบ",
+    "confirmLogout": "ยืนยันการออกจากระบบ",
+    "confirmLogoutMessage": "คุณแน่ใจหรือว่าต้องการออกจากระบบ? คุณจะต้องลงชื่อเข้าใช้อีกครั้งเพื่อเข้าถึง Agent ของคุณ",
+    "cancel": "ยกเลิก"
   },
   "AgentsPage": {
     "title": "เอเจนต์ของคุณ",

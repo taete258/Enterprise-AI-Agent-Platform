@@ -14,7 +14,10 @@
     "feature2Title": "Always Available",
     "feature2Desc": "Access your agents anytime, anywhere",
     "showPassword": "Show password",
-    "hidePassword": "Hide password"
+    "hidePassword": "Hide password",
+    "isRequired": "is required",
+    "isIncorrect": "is incorrect",
+    "invalidCredentials": "Invalid email or password"
   },
   "UnauthorizedPage": {
     "title": "Access Denied",
@@ -38,7 +41,10 @@
     "usage": "Usage",
     "auditLog": "Audit log",
     "checkingAuth": "Checking authorization…",
-    "logout": "Logout"
+    "logout": "Logout",
+    "confirmLogout": "Confirm Sign Out",
+    "confirmLogoutMessage": "Are you sure you want to sign out? You will need to log in again to access your agents.",
+    "cancel": "Cancel"
   },
   "AgentsPage": {
     "title": "Your agents",

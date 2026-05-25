@@ -5,6 +5,16 @@ function token(): string | null {
   return localStorage.getItem("token");
 }
 
+function redirectToUnauthorized() {
+  if (typeof window === "undefined") return;
+  const segments = window.location.pathname.split("/");
+  const locale = (segments[1] === "en" || segments[1] === "th") ? segments[1] : "th";
+  if (locale) {
+    console.log(locale)
+    window.location.href = `/${locale}/unauthorized?from=${encodeURIComponent(window.location.pathname)}`;
+  }
+}
+
 export function isTokenValid(t: string | null): boolean {
   if (!t) return false;
   try {
@@ -35,9 +45,9 @@ export async function api<T = any>(path: string, init: RequestInit = {}): Promis
     },
   });
   if (!res.ok) {
-    if (res.status === 401 && typeof window !== "undefined") {
+    if (res.status === 401 && typeof window !== "undefined" && !path.includes("/api/auth/login")) {
       localStorage.removeItem("token");
-      window.location.href = `/unauthorized?from=${encodeURIComponent(window.location.pathname)}`;
+      redirectToUnauthorized();
     }
     const text = await res.text();
     throw new Error(`${res.status}: ${text}`);
@@ -75,7 +85,7 @@ export const agents = {
     if (!res.ok) {
       if (res.status === 401 && typeof window !== "undefined") {
         localStorage.removeItem("token");
-        window.location.href = `/unauthorized?from=${encodeURIComponent(window.location.pathname)}`;
+        redirectToUnauthorized();
       }
       throw new Error(`${res.status}: ${await res.text()}`);
     }
