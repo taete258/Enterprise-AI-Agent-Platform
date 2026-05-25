@@ -10,7 +10,6 @@ function redirectToUnauthorized() {
   const segments = window.location.pathname.split("/");
   const locale = (segments[1] === "en" || segments[1] === "th") ? segments[1] : "th";
   if (locale) {
-    console.log(locale)
     window.location.href = `/${locale}/unauthorized?from=${encodeURIComponent(window.location.pathname)}`;
   }
 }
