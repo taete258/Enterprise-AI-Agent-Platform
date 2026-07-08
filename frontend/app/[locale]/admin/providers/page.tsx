@@ -103,7 +103,15 @@ export default function ProvidersPage() {
 
   async function del(id: number) {
     if (!confirm(t("deleteConfirm"))) return;
-    await llm.deleteProvider(id); load();
+    setBusy(true); setErr("");
+    try {
+      await llm.deleteProvider(id);
+      load();
+    } catch (e: any) {
+      setErr(e.message);
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (

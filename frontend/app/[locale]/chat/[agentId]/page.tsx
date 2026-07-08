@@ -564,6 +564,7 @@ export default function ChatPage() {
   useEffect(() => {
     if (!sessionIdQuery) return;
     const sId = Number(sessionIdQuery);
+    if (sId === sessionId) return;
     setSessionId(sId);
     initialScrollDoneRef.current = false;
     sessions.messages(sId, { limit: PAGE_SIZE })
@@ -571,6 +572,15 @@ export default function ChatPage() {
         setMsgs(data.map(mapMsg));
         setHasMore(data.length === PAGE_SIZE);
       }).catch(() => { });
+  }, [sessionIdQuery, sessionId]);
+
+  // Step 1.5 — if URL does not have session_id (e.g. ?new=true), clear session states
+  useEffect(() => {
+    if (!sessionIdQuery) {
+      setSessionId(undefined);
+      setMsgs([]);
+      initialScrollDoneRef.current = false;
+    }
   }, [sessionIdQuery]);
 
   // Step 2 — no session_id in URL yet: pick the right session and navigate to it.

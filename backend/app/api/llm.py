@@ -26,11 +26,23 @@ router = APIRouter(prefix="/api/llm", tags=["llm"])
 
 @router.get("/providers", response_model=list[ProviderOut])
 def list_providers(db: Session = Depends(get_db), _=Depends(require_superuser)):
-    return db.scalars(select(LLMProvider)).all()
+    return db.scalars(select(LLMProvider).where(LLMProvider.is_active == True)).all()
 
 
 @router.post("/providers", response_model=ProviderOut)
 def create_provider(payload: ProviderCreate, db: Session = Depends(get_db), _=Depends(require_superuser)):
+    existing = db.scalar(select(LLMProvider).where(LLMProvider.name == payload.name))
+    if existing:
+        if existing.is_active:
+            raise HTTPException(400, "Provider with this name already exists")
+        else:
+            existing.kind = payload.kind
+            existing.base_url = payload.base_url
+            existing.api_key_encrypted = encrypt_secret(payload.api_key) if payload.api_key else ""
+            existing.is_active = True
+            db.commit(); db.refresh(existing)
+            return existing
+
     p = LLMProvider(
         name=payload.name,
         kind=payload.kind,
@@ -47,7 +59,7 @@ def update_provider(
     db: Session = Depends(get_db), _=Depends(require_superuser),
 ):
     p = db.get(LLMProvider, provider_id)
-    if not p:
+    if not p or not p.is_active:
         raise HTTPException(404)
     data = payload.model_dump(exclude_unset=True)
     if "api_key" in data:
@@ -63,9 +75,12 @@ def update_provider(
 @router.delete("/providers/{provider_id}")
 def delete_provider(provider_id: int, db: Session = Depends(get_db), _=Depends(require_superuser)):
     p = db.get(LLMProvider, provider_id)
-    if not p:
+    if not p or not p.is_active:
         raise HTTPException(404)
-    db.delete(p); db.commit()
+    p.is_active = False
+    for m in p.models:
+        m.is_active = False
+    db.commit()
     return {"ok": True}
 
 
@@ -82,7 +97,7 @@ def test_config(payload: ProviderTestConfig, _=Depends(require_superuser)):
 @router.post("/providers/{provider_id}/test")
 def test_provider(provider_id: int, db: Session = Depends(get_db), _=Depends(require_superuser)):
     p = db.get(LLMProvider, provider_id)
-    if not p:
+    if not p or not p.is_active:
         raise HTTPException(404)
     try:
         client = get_client(p)
@@ -95,7 +110,7 @@ def test_provider(provider_id: int, db: Session = Depends(get_db), _=Depends(req
 @router.get("/providers/{provider_id}/available-models")
 def available_models(provider_id: int, db: Session = Depends(get_db), _=Depends(require_superuser)):
     p = db.get(LLMProvider, provider_id)
-    if not p:
+    if not p or not p.is_active:
         raise HTTPException(404)
     try:
         client = get_client(p)
@@ -111,6 +126,26 @@ def list_models(db: Session = Depends(get_db)):
 
 @router.post("/models", response_model=ModelOut)
 def create_model(payload: ModelCreate, db: Session = Depends(get_db), _=Depends(require_superuser)):
+    existing = db.scalar(
+        select(LLMModel).where(
+            LLMModel.provider_id == payload.provider_id,
+            LLMModel.model_id == payload.model_id
+        )
+    )
+    if existing:
+        if existing.is_active:
+            raise HTTPException(400, "Model already exists for this provider")
+        else:
+            existing.display_name = payload.display_name
+            existing.context_window = payload.context_window
+            existing.input_cost_per_1k = payload.input_cost_per_1k
+            existing.output_cost_per_1k = payload.output_cost_per_1k
+            existing.supports_vision = payload.supports_vision
+            existing.supports_image_generation = payload.supports_image_generation
+            existing.is_active = True
+            db.commit(); db.refresh(existing)
+            return existing
+
     m = LLMModel(**payload.model_dump())
     db.add(m); db.commit(); db.refresh(m)
     return m
