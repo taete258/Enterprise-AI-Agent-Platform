@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import Logo from "./Logo";
 import LocaleSwitcher from "./LocaleSwitcher";
+import ThemeToggle from "./ThemeToggle";
 import { Avatar, AvatarFallback } from "./ui/avatar";
 import { Separator } from "./ui/separator";
 import { isTokenValid, auth } from "@/lib/api";
@@ -155,7 +156,12 @@ export default function AppShell({ children, rightPanel }: {
         </nav>
         <Separator className="bg-sidebar-border" />
         <div className="p-2.5 space-y-2">
-          <LocaleSwitcher currentLocale={locale} />
+          <div className="flex gap-2 items-center justify-between">
+            <div className="flex-1 min-w-0">
+              <LocaleSwitcher currentLocale={locale} />
+            </div>
+            <ThemeToggle />
+          </div>
           <div className="flex items-center gap-2 px-1 py-1">
             <Avatar><AvatarFallback className="bg-primary text-primary-foreground">{(email[0] || "?").toUpperCase()}</AvatarFallback></Avatar>
             <div className="min-w-0 flex-1">

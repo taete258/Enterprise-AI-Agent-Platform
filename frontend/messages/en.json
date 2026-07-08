@@ -117,7 +117,9 @@
     "noModels": "No models — go to Library → Models to add",
     "noSkills": "No skills registered. Go to Library > Tools to register.",
     "nameRequired": "Agent name is required",
-    "modelRequired": "Model is required"
+    "modelRequired": "Model is required",
+    "imageGenModel": "Image Generation Model",
+    "defaultFallback": "Default (System Fallback)"
   },
   "EditAgentPage": {
     "title": "Edit agent",
@@ -149,7 +151,9 @@
     "saveButton": "Save changes",
     "cancel": "Cancel",
     "noModels": "No models — go to Library → Models to add",
-    "noSkills": "No skills registered. Go to Library > Tools to register."
+    "noSkills": "No skills registered. Go to Library > Tools to register.",
+    "imageGenModel": "Image Generation Model",
+    "defaultFallback": "Default (System Fallback)"
   },
   "ChatPage": {
     "recentChats": "Recent chats",
@@ -255,6 +259,7 @@
     "inputCost": "Input $ / 1k",
     "outputCost": "Output $ / 1k",
     "supportsVision": "Supports Vision (images)",
+    "supportsImageGen": "Supports Image Generation",
     "addModel": "+ Add Model",
     "noModels": "No models registered yet",
     "confirmDeleteTitle": "Confirm Delete Model",

@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { LogOut } from "lucide-react";
 import Logo from "./Logo";
 import LocaleSwitcher from "./LocaleSwitcher";
+import ThemeToggle from "./ThemeToggle";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 
@@ -41,7 +42,7 @@ export default function AppHeader() {
   }
 
   return (
-    <header className="sticky top-0 z-30 bg-white/80 backdrop-blur border-b border-surface-ring">
+    <header className="sticky top-0 z-30 bg-background/80 backdrop-blur border-b border-border">
       <div className="max-w-6xl mx-auto px-5 h-16 flex items-center justify-between">
         <Link href="/agents"><Logo /></Link>
         <nav className="hidden sm:flex items-center gap-1">
@@ -65,6 +66,7 @@ export default function AppHeader() {
               <span className="text-sm text-ink-700">{email}</span>
             </div>
           )}
+          <ThemeToggle />
           <LocaleSwitcher currentLocale={locale} />
           <button onClick={handleLogoutClick} className="btn-ghost !py-1.5 !px-3 text-xs">{t("logout")}</button>
         </div>

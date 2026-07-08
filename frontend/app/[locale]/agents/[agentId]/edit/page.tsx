@@ -309,6 +309,58 @@ export default function EditAgentPage() {
                             />
                           </div>
                         )}
+                        {isChecked && tool.key === "generate_image" && (
+                          <div className="mt-3 pt-3 border-t border-border/60 space-y-1.5 pl-7">
+                            <Label className="text-[11px] text-muted-foreground">{t("imageGenModel")}</Label>
+                            <Select
+                              value={(() => {
+                                try {
+                                  const cfg = JSON.parse(selectedTools[tool.key]?.config || "{}");
+                                  return String(cfg.model_db_id || "default");
+                                } catch {
+                                  return "default";
+                                }
+                              })()}
+                              onValueChange={(val) => {
+                                setSelectedTools((prev) => {
+                                  try {
+                                    const cfg = JSON.parse(prev[tool.key]?.config || "{}");
+                                    if (val === "default") {
+                                      delete cfg.model_db_id;
+                                    } else {
+                                      cfg.model_db_id = Number(val);
+                                    }
+                                    return {
+                                      ...prev,
+                                      [tool.key]: {
+                                        ...prev[tool.key],
+                                        config: JSON.stringify(cfg),
+                                      },
+                                    };
+                                  } catch {
+                                    return prev;
+                                  }
+                                });
+                              }}
+                            >
+                              <SelectTrigger className="h-8 text-[12px] bg-transparent">
+                                <SelectValue placeholder="— Select Model —" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="default" className="text-[12px]">
+                                  {t("defaultFallback")}
+                                </SelectItem>
+                                {models
+                                  .filter((m) => m.supports_image_generation)
+                                  .map((m) => (
+                                    <SelectItem key={m.id} value={String(m.id)} className="text-[12px]">
+                                      {m.display_name || m.model_id}
+                                    </SelectItem>
+                                  ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
                       </div>
                     );
                   })}

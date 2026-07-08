@@ -66,14 +66,13 @@ export default function ModelsPage() {
 
   async function startEdit(model: any) {
     setEditingModel(model);
-    const caps = detectCapabilities(model.model_id);
     setEditForm({
       display_name: model.display_name,
       context_window: model.context_window,
       input_cost_per_1k: model.input_cost_per_1k,
       output_cost_per_1k: model.output_cost_per_1k,
-      supports_vision: caps.includes("vision"),
-      supports_image_generation: caps.includes("image gen"),
+      supports_vision: model.supports_vision,
+      supports_image_generation: model.supports_image_generation,
     });
     setEditErr("");
   }
@@ -192,6 +191,27 @@ export default function ModelsPage() {
                 </div>
               </div>
 
+              <div className="sm:col-span-2 flex items-center gap-6 py-2">
+                <label className="flex items-center gap-2 text-[13px] font-medium text-foreground cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={form.supports_vision}
+                    onChange={(e) => setForm({ ...form, supports_vision: e.target.checked })}
+                    className="w-4 h-4 accent-primary"
+                  />
+                  {t("supportsVision")}
+                </label>
+                <label className="flex items-center gap-2 text-[13px] font-medium text-foreground cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={form.supports_image_generation}
+                    onChange={(e) => setForm({ ...form, supports_image_generation: e.target.checked })}
+                    className="w-4 h-4 accent-primary"
+                  />
+                  {t("supportsImageGen")}
+                </label>
+              </div>
+
               {err && (
                 <Alert variant="destructive" className="sm:col-span-2">
                   <AlertCircle className="size-4" /><AlertDescription>{err}</AlertDescription>
@@ -293,6 +313,27 @@ export default function ModelsPage() {
                 <Input type="number" step="0.0001" value={editForm.output_cost_per_1k}
                        onChange={(e) => setEditForm({ ...editForm, output_cost_per_1k: Number(e.target.value) })} />
               </div>
+            </div>
+
+            <div className="flex items-center gap-6 py-2">
+              <label className="flex items-center gap-2 text-[13px] font-medium text-foreground cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={editForm.supports_vision}
+                  onChange={(e) => setEditForm({ ...editForm, supports_vision: e.target.checked })}
+                  className="w-4 h-4 accent-primary"
+                />
+                {t("supportsVision")}
+              </label>
+              <label className="flex items-center gap-2 text-[13px] font-medium text-foreground cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={editForm.supports_image_generation}
+                  onChange={(e) => setEditForm({ ...editForm, supports_image_generation: e.target.checked })}
+                  className="w-4 h-4 accent-primary"
+                />
+                {t("supportsImageGen")}
+              </label>
             </div>
 
             {editErr && (
