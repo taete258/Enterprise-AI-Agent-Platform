@@ -24,7 +24,13 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
 
 @router.get("/me", response_model=UserOut)
 def me(user: User = Depends(get_current_user)):
-    return user
+    return UserOut.from_user(user)
+
+
+@router.get("/me/permissions")
+def me_permissions(user: User = Depends(get_current_user)):
+    from ..services.acl import get_user_permissions
+    return {"permissions": get_user_permissions(user)}
 
 
 @router.post("/users", response_model=UserOut, dependencies=[Depends(require_superuser)])

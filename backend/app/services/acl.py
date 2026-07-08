@@ -26,3 +26,25 @@ def user_has_permission(
             if _ORDER.get(a.permission, 0) >= need:
                 return True
     return False
+
+
+def get_user_permissions(user: User) -> list[str]:
+    """Return effective permission keys for a user based on assigned roles."""
+    if user.is_superuser:
+        from ..core.permissions import ALL_PERMISSIONS
+        return ALL_PERMISSIONS
+    perms: set[str] = set()
+    for ur in user.roles:
+        for perm in ur.role.permissions:
+            perms.add(perm)
+    return sorted(perms)
+
+
+def user_has_role_permission(user: User, permission: str) -> bool:
+    """Check if user has a role-based permission key (e.g. 'agent:create')."""
+    if user.is_superuser:
+        return True
+    for ur in user.roles:
+        if permission in ur.role.permissions:
+            return True
+    return False

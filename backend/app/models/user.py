@@ -1,5 +1,6 @@
+import json
 from datetime import datetime
-from sqlalchemy import String, ForeignKey, DateTime, Boolean, UniqueConstraint
+from sqlalchemy import String, ForeignKey, DateTime, Boolean, UniqueConstraint, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from ..db.session import Base
 
@@ -23,8 +24,20 @@ class Role(Base):
     __tablename__ = "roles"
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(64), unique=True)
-    # JSON-string list of permission keys (e.g. "agent:create", "llm:manage")
-    permissions: Mapped[str] = mapped_column(String, default="[]")
+    description: Mapped[str] = mapped_column(String(512), default="")
+    # Stored as JSON array of permission keys e.g. ["agent:view", "agent:create"]
+    _permissions: Mapped[str] = mapped_column("permissions", Text, default="[]")
+
+    @property
+    def permissions(self) -> list[str]:
+        try:
+            return json.loads(self._permissions or "[]")
+        except (json.JSONDecodeError, TypeError):
+            return []
+
+    @permissions.setter
+    def permissions(self, value: list[str]) -> None:
+        self._permissions = json.dumps(value)
 
 
 class UserRole(Base):

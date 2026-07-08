@@ -20,47 +20,31 @@ def _init_db() -> None:
     # Create all tables from models
     Base.metadata.create_all(bind=engine)
 
-    # Add missing columns to existing tables
-    with engine.connect() as conn:
-        # Messages table migrations
+    # Add missing columns using IF NOT EXISTS to avoid connection state issues
+    _safe_migrations = [
+        "ALTER TABLE messages ADD COLUMN IF NOT EXISTS tool_calls TEXT",
+        "ALTER TABLE messages ADD COLUMN IF NOT EXISTS tool_call_id VARCHAR(128)",
+        "ALTER TABLE chat_sessions ADD COLUMN IF NOT EXISTS is_pinned BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE chat_sessions ADD COLUMN IF NOT EXISTS is_archived BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE chat_sessions ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()",
+        "ALTER TABLE llm_models ADD COLUMN IF NOT EXISTS supports_image_generation BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE roles ADD COLUMN IF NOT EXISTS description VARCHAR(512) DEFAULT ''",
+    ]
+    for sql in _safe_migrations:
         try:
-            conn.execute(text("ALTER TABLE messages ADD COLUMN tool_calls TEXT"))
-            conn.commit()
-        except Exception:
-            pass
-        try:
-            conn.execute(text("ALTER TABLE messages ADD COLUMN tool_call_id VARCHAR(128)"))
-            conn.commit()
-        except Exception:
-            pass
-
-        # ChatSession table migrations
-        try:
-            conn.execute(text("ALTER TABLE chat_sessions ADD COLUMN is_pinned BOOLEAN DEFAULT FALSE"))
-            conn.commit()
-        except Exception:
-            pass
-        try:
-            conn.execute(text("ALTER TABLE chat_sessions ADD COLUMN is_archived BOOLEAN DEFAULT FALSE"))
-            conn.commit()
-        except Exception:
-            pass
-        try:
-            conn.execute(text("ALTER TABLE chat_sessions ADD COLUMN updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()"))
-            conn.commit()
-        except Exception:
-            pass
-        try:
-            conn.execute(text("ALTER TABLE chat_sessions ADD COLUMN group_id INTEGER REFERENCES session_groups(id) ON DELETE SET NULL"))
-            conn.commit()
+            with engine.connect() as conn:
+                conn.execute(text(sql))
+                conn.commit()
         except Exception as e:
-            print(f"Warning: Could not add group_id column: {e}")
-            pass
-        try:
-            conn.execute(text("ALTER TABLE llm_models ADD COLUMN supports_image_generation BOOLEAN DEFAULT FALSE"))
+            print(f"Warning: migration skipped ({e})")
+
+    # group_id has FK constraint so keep separate with warning
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("ALTER TABLE chat_sessions ADD COLUMN IF NOT EXISTS group_id INTEGER REFERENCES session_groups(id) ON DELETE SET NULL"))
             conn.commit()
-        except Exception:
-            pass
+    except Exception as e:
+        print(f"Warning: Could not add group_id column: {e}")
 
     # Seed first superuser if none exists
     db = SessionLocal()
@@ -106,6 +90,15 @@ def _init_db() -> None:
                 is_system=False
             ))
             db.commit()
+
+        # Seed default roles
+        from .core.permissions import DEFAULT_ROLES
+        for role_name, role_data in DEFAULT_ROLES.items():
+            if not db.query(models.Role).filter_by(name=role_name).first():
+                role = models.Role(name=role_name, description=role_data["description"])
+                role.permissions = role_data["permissions"]
+                db.add(role)
+        db.commit()
 
         # Seed image generation tool if missing
         if not db.query(models.Tool).filter_by(key="generate_image").first():

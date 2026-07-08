@@ -1,15 +1,28 @@
 "use client";
 import { usePathname, useRouter, Link } from "@/i18n/routing";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import {
-  Bot, MessagesSquare, BookOpen, Cpu, Plug, Users, BarChart3, ScrollText, LogOut, Wrench,
+  Bot, MessagesSquare, BookOpen, Cpu, Plug, Users, BarChart3, ScrollText, LogOut, Wrench, Shield,
 } from "lucide-react";
 import Logo from "./Logo";
 import LocaleSwitcher from "./LocaleSwitcher";
 import { Avatar, AvatarFallback } from "./ui/avatar";
 import { Separator } from "./ui/separator";
-import { isTokenValid } from "@/lib/api";
+import { isTokenValid, auth } from "@/lib/api";
+
+interface NavItem {
+  href: string;
+  label: string;
+  icon: React.ElementType;
+  permission?: string;
+}
+
+interface NavGroup {
+  section: string;
+  items: NavItem[];
+  permission?: string;
+}
 
 export default function AppShell({ children, rightPanel }: {
   children: React.ReactNode;
@@ -21,28 +34,39 @@ export default function AppShell({ children, rightPanel }: {
   const t = useTranslations("Navigation");
   const [email, setEmail] = useState("");
   const [checkingAuth, setCheckingAuth] = useState(true);
+  const [isSuperuser, setIsSuperuser] = useState(false);
+  const [permissions, setPermissions] = useState<string[]>([]);
 
-  const NAV = [
+  const can = useCallback((permission: string) => {
+    if (isSuperuser) return true;
+    return permissions.includes(permission);
+  }, [isSuperuser, permissions]);
+
+  const isAdmin = isSuperuser || permissions.includes("user:admin");
+
+  const ALL_NAV: NavGroup[] = [
     {
       section: t("workspace"),
       items: [
-        { href: "/agents", label: t("agents"), icon: Bot },
-        { href: "/chat",   label: t("chats"),  icon: MessagesSquare },
+        { href: "/agents",  label: t("agents"), icon: Bot,            permission: "agent:view" },
+        { href: "/chat",    label: t("chats"),  icon: MessagesSquare },
       ],
     },
     {
       section: t("library"),
       items: [
-        { href: "/admin/knowledge", label: t("knowledge"), icon: BookOpen },
-        { href: "/admin/models",    label: t("models"),    icon: Cpu },
-        { href: "/admin/tools",     label: t("tools"),     icon: Wrench },
+        { href: "/admin/knowledge", label: t("knowledge"), icon: BookOpen, permission: "knowledge:view" },
+        { href: "/admin/models",    label: t("models"),    icon: Cpu,      permission: "llm:view" },
+        { href: "/admin/tools",     label: t("tools"),     icon: Wrench,   permission: "tool:view" },
       ],
     },
     {
       section: t("manage"),
+      permission: "user:admin",
       items: [
         { href: "/admin/providers", label: t("providers"), icon: Plug },
         { href: "/admin/users",     label: t("users"),     icon: Users },
+        { href: "/admin/roles",     label: t("roles"),     icon: Shield },
         { href: "/admin/dashboard", label: t("usage"),     icon: BarChart3 },
         { href: "/admin/audit",     label: t("auditLog"),  icon: ScrollText },
       ],
@@ -53,14 +77,24 @@ export default function AppShell({ children, rightPanel }: {
     const tok = typeof window !== "undefined" ? localStorage.getItem("token") : null;
     if (!isTokenValid(tok)) {
       router.push(`/unauthorized?from=${encodeURIComponent(pathname)}` as any);
-    } else {
-      try {
-        const payload = JSON.parse(atob(tok!.split(".")[1]));
-        setEmail(payload.email || "");
+      return;
+    }
+    try {
+      const payload = JSON.parse(atob(tok!.split(".")[1]));
+      setEmail(payload.email || "");
+      const su = !!payload.su;
+      setIsSuperuser(su);
+      if (!su) {
+        // Fetch permissions for non-superusers
+        auth.myPermissions()
+          .then((data) => setPermissions(data.permissions))
+          .catch(() => {})
+          .finally(() => setCheckingAuth(false));
+      } else {
         setCheckingAuth(false);
-      } catch {
-        router.push(`/unauthorized?from=${encodeURIComponent(pathname)}` as any);
       }
+    } catch {
+      router.push(`/unauthorized?from=${encodeURIComponent(pathname)}` as any);
     }
   }, [pathname, router]);
 
@@ -91,23 +125,33 @@ export default function AppShell({ children, rightPanel }: {
           <Link href="/agents"><Logo /></Link>
         </div>
         <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-5">
-          {NAV.map((group) => (
-            <div key={group.section}>
-              <div className="px-3 mb-1 section-h">{group.section}</div>
-              <div className="space-y-0.5">
-                {group.items.map((it) => {
-                  const active = pathname === it.href || (it.href !== "/" && pathname.startsWith(it.href));
-                  const Icon = it.icon;
-                  return (
-                    <Link key={it.href} href={it.href as any} className={`nav-item ${active ? "active" : ""}`}>
-                      <Icon className="size-4" strokeWidth={1.8} />
-                      <span>{it.label}</span>
-                    </Link>
-                  );
-                })}
+          {ALL_NAV.map((group) => {
+            // Hide entire section if it requires a permission the user doesn't have
+            if (group.permission && !can(group.permission)) return null;
+
+            const visibleItems = group.items.filter((it) =>
+              !it.permission || can(it.permission)
+            );
+            if (visibleItems.length === 0) return null;
+
+            return (
+              <div key={group.section}>
+                <div className="px-3 mb-1 section-h">{group.section}</div>
+                <div className="space-y-0.5">
+                  {visibleItems.map((it) => {
+                    const active = pathname === it.href || (it.href !== "/" && pathname.startsWith(it.href));
+                    const Icon = it.icon;
+                    return (
+                      <Link key={it.href} href={it.href as any} className={`nav-item ${active ? "active" : ""}`}>
+                        <Icon className="size-4" strokeWidth={1.8} />
+                        <span>{it.label}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </nav>
         <Separator className="bg-sidebar-border" />
         <div className="p-2.5 space-y-2">

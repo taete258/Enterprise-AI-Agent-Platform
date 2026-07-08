@@ -38,6 +38,7 @@
     "tools": "Tools",
     "providers": "Providers",
     "users": "Users",
+    "roles": "Roles",
     "usage": "Usage",
     "auditLog": "Audit log",
     "checkingAuth": "กำลังตรวจสอบสิทธิ์…",

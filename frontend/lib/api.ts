@@ -60,7 +60,8 @@ export const auth = {
       method: "POST",
       body: JSON.stringify({ email, password }),
     }),
-  me: () => api("/api/auth/me"),
+  me: () => api<{ id: number; email: string; full_name: string; is_active: boolean; is_superuser: boolean; created_at: string; roles: { id: number; name: string; description: string }[] }>("/api/auth/me"),
+  myPermissions: () => api<{ permissions: string[] }>("/api/auth/me/permissions"),
 };
 
 export const agents = {
@@ -177,10 +178,23 @@ export const admin = {
     api("/api/auth/users", { method: "POST", body: JSON.stringify(data) }),
   updateUser: (id: number, data: any) => api(`/api/auth/users/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   deleteUser: (id: number) => api(`/api/auth/users/${id}`, { method: "DELETE" }),
+  getUserPermissions: (id: number) => api<{ user_id: number; permissions: string[] }>(`/api/admin/users/${id}/permissions`),
+  assignRole: (userId: number, roleId: number) =>
+    api(`/api/admin/users/${userId}/roles?role_id=${roleId}`, { method: "POST" }),
+  removeRole: (userId: number, roleId: number) =>
+    api(`/api/admin/users/${userId}/roles/${roleId}`, { method: "DELETE" }),
   listTools: () => api<any[]>("/api/admin/tools"),
   createTool: (data: any) => api("/api/admin/tools", { method: "POST", body: JSON.stringify(data) }),
   updateTool: (id: number, data: any) => api(`/api/admin/tools/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   deleteTool: (id: number) => api(`/api/admin/tools/${id}`, { method: "DELETE" }),
   testTool: (data: { url: string; method?: string; headers?: string; parameters?: string }) =>
     api(`/api/admin/tools/test`, { method: "POST", body: JSON.stringify(data) }),
+  // Role management
+  roles: () => api<any[]>("/api/admin/roles"),
+  createRole: (data: { name: string; description: string; permissions: string[] }) =>
+    api("/api/admin/roles", { method: "POST", body: JSON.stringify(data) }),
+  updateRole: (id: number, data: { description?: string; permissions?: string[] }) =>
+    api(`/api/admin/roles/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  deleteRole: (id: number) => api(`/api/admin/roles/${id}`, { method: "DELETE" }),
+  permissions: () => api<{ permissions: Record<string, string[]> }>("/api/admin/permissions"),
 };

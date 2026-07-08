@@ -4,10 +4,14 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select, func
 from pydantic import BaseModel
 from ..db.session import get_db
-from ..models import UsageRecord, AuditLog, User, Agent, Tool
+from ..models import UsageRecord, AuditLog, User, Agent, Tool, Role, UserRole
 from ..schemas.auth import UserOut
+from ..schemas.role import RoleCreate, RoleUpdate, RoleOut
 from ..schemas.tool import ToolCreate, ToolUpdate, ToolOut
-from .deps import require_superuser
+from ..core.permissions import PERMISSIONS_BY_RESOURCE
+from ..services.acl import get_user_permissions
+from ..services.audit import log_action
+from .deps import require_superuser, get_current_user
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -187,7 +191,105 @@ def audit(
 
 @router.get("/users", response_model=list[UserOut], dependencies=[Depends(require_superuser)])
 def list_users(db: Session = Depends(get_db)):
-    return db.scalars(select(User).order_by(User.id)).all()
+    users = db.scalars(select(User).order_by(User.id)).all()
+    return [UserOut.from_user(u) for u in users]
+
+
+@router.get("/users/{user_id}/permissions", dependencies=[Depends(require_superuser)])
+def get_user_perms(user_id: int, db: Session = Depends(get_db)):
+    user = db.get(User, user_id)
+    if not user:
+        raise HTTPException(404, "User not found")
+    return {"user_id": user_id, "permissions": get_user_permissions(user)}
+
+
+@router.post("/users/{user_id}/roles", dependencies=[Depends(require_superuser)])
+def assign_role(user_id: int, role_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    user = db.get(User, user_id)
+    if not user:
+        raise HTTPException(404, "User not found")
+    role = db.get(Role, role_id)
+    if not role:
+        raise HTTPException(404, "Role not found")
+    existing = db.scalar(select(UserRole).where(UserRole.user_id == user_id, UserRole.role_id == role_id))
+    if existing:
+        raise HTTPException(409, "User already has this role")
+    db.add(UserRole(user_id=user_id, role_id=role_id))
+    db.commit()
+    log_action(db, user_id=current_user.id, action="role.assign", resource_type="user", resource_id=str(user_id), detail={"role_id": role_id})
+    return {"ok": True}
+
+
+@router.delete("/users/{user_id}/roles/{role_id}", dependencies=[Depends(require_superuser)])
+def remove_role(user_id: int, role_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    ur = db.scalar(select(UserRole).where(UserRole.user_id == user_id, UserRole.role_id == role_id))
+    if not ur:
+        raise HTTPException(404, "User does not have this role")
+    db.delete(ur)
+    db.commit()
+    log_action(db, user_id=current_user.id, action="role.remove", resource_type="user", resource_id=str(user_id), detail={"role_id": role_id})
+    return {"ok": True}
+
+
+# --- Permission Registry ---
+
+@router.get("/permissions", dependencies=[Depends(require_superuser)])
+def list_permissions():
+    return {"permissions": PERMISSIONS_BY_RESOURCE}
+
+
+# --- Role Management ---
+
+@router.get("/roles", response_model=list[RoleOut], dependencies=[Depends(require_superuser)])
+def list_roles(db: Session = Depends(get_db)):
+    return db.scalars(select(Role).order_by(Role.id)).all()
+
+
+@router.post("/roles", response_model=RoleOut, dependencies=[Depends(require_superuser)])
+def create_role(payload: RoleCreate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if db.scalar(select(Role).where(Role.name == payload.name)):
+        raise HTTPException(409, "Role name already exists")
+    role = Role(name=payload.name, description=payload.description)
+    role.permissions = payload.permissions
+    db.add(role)
+    db.commit()
+    db.refresh(role)
+    log_action(db, user_id=current_user.id, action="role.create", resource_type="role", resource_id=str(role.id))
+    return role
+
+
+@router.get("/roles/{role_id}", response_model=RoleOut, dependencies=[Depends(require_superuser)])
+def get_role(role_id: int, db: Session = Depends(get_db)):
+    role = db.get(Role, role_id)
+    if not role:
+        raise HTTPException(404, "Role not found")
+    return role
+
+
+@router.patch("/roles/{role_id}", response_model=RoleOut, dependencies=[Depends(require_superuser)])
+def update_role(role_id: int, payload: RoleUpdate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    role = db.get(Role, role_id)
+    if not role:
+        raise HTTPException(404, "Role not found")
+    if payload.description is not None:
+        role.description = payload.description
+    if payload.permissions is not None:
+        role.permissions = payload.permissions
+    db.commit()
+    db.refresh(role)
+    log_action(db, user_id=current_user.id, action="role.update", resource_type="role", resource_id=str(role_id))
+    return role
+
+
+@router.delete("/roles/{role_id}", dependencies=[Depends(require_superuser)])
+def delete_role(role_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    role = db.get(Role, role_id)
+    if not role:
+        raise HTTPException(404, "Role not found")
+    db.delete(role)
+    db.commit()
+    log_action(db, user_id=current_user.id, action="role.delete", resource_type="role", resource_id=str(role_id))
+    return {"ok": True}
 
 
 class ToolTestRequest(BaseModel):
