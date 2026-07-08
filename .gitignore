@@ -8,3 +8,4 @@ dist/
 .DS_Store
 *.sqlite3
 backups/
+.npmrc
