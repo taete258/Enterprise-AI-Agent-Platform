@@ -4,6 +4,7 @@ import { useParams, useSearchParams } from "next/navigation";
 import { useRouter } from "@/i18n/routing";
 import { useTranslations } from "next-intl";
 import { agents, sessions, llm, auth, admin } from "@/lib/api";
+import { API_URL } from "@/lib/api";
 import AppShell from "@/components/AppShell";
 import Topbar from "@/components/Topbar";
 import { Card } from "@/components/ui/card";
@@ -109,7 +110,7 @@ function tryExtractImageUrl(content: string): string | null {
   return null;
 }
 
-function parseImageGenerationJson(content: string): { model?: string; prompt?: string; images: Array<{ url: string }> } | null {
+function parseImageGenerationJson(content: string): { model?: string; prompt?: string; images: Array<{ url: string; key?: string }> } | null {
   try {
     const data = JSON.parse(content);
     if (data.images && Array.isArray(data.images)) {
@@ -129,6 +130,25 @@ function parseImageGenerationJson(content: string): { model?: string; prompt?: s
   } catch { }
 
   return null;
+}
+
+/**
+ * Resolve a durable image URL.
+ * When the image object has a `key` (permanent MinIO object key) we route
+ * through the backend proxy endpoint which generates a fresh presigned URL on
+ * every request.  This survives Docker restarts and presigned-URL expiry.
+ * Falls back to the stored `url` for backwards-compat with messages that were
+ * saved before the `key` field was introduced.
+ */
+function resolveImageUrl(img: { url?: string; key?: string }): string {
+  if (img.key) {
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    // The endpoint handles auth via the Authorization header but since we use
+    // <img src=...> we embed the token as a query param for convenience.
+    const base = `${API_URL}/api/images/${img.key}`;
+    return token ? `${base}?token=${encodeURIComponent(token)}` : base;
+  }
+  return img.url || "";
 }
 
 function ImageWithFallback({ src, alt }: { src: string; alt: string }) {
@@ -171,11 +191,12 @@ function renderContentWithImages(content: string, modelName: string | null = nul
   if (imgGenData && imgGenData.images.length > 0) {
     const parts: ReactNode[] = [];
     imgGenData.images.forEach((img, idx) => {
-      if (img.url) {
+      const src = resolveImageUrl(img);
+      if (src) {
         parts.push(
           <div key={`img-gen-${idx}`} className="flex flex-col gap-1">
             <div className="w-96 h-96 bg-muted rounded-md border border-border overflow-hidden flex items-center justify-center">
-              <ImageWithFallback src={img.url} alt={`Generated image ${idx + 1}`} />
+              <ImageWithFallback src={src} alt={`Generated image ${idx + 1}`} />
             </div>
             {(imgGenData.model || modelName) && (
               <span className="text-[11px] text-muted-foreground font-mono">Model: {imgGenData.model || modelName}</span>

@@ -7,7 +7,7 @@ from .core.config import get_settings
 from .db.session import engine, Base, SessionLocal
 from .core.security import hash_password
 from . import models  # noqa: F401  — register models
-from .api import auth, agents, llm, sessions, knowledge, admin, mock
+from .api import auth, agents, llm, sessions, knowledge, admin, mock, images
 
 settings = get_settings()
 
@@ -149,6 +149,7 @@ app.include_router(sessions.router)
 app.include_router(knowledge.router)
 app.include_router(admin.router)
 app.include_router(mock.router)
+app.include_router(images.router)
 
 
 @app.get("/api/health")
