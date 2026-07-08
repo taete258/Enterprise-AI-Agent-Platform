@@ -129,12 +129,17 @@ async def chat(
     if attachment_text:
         user_text = (message + "\n\n" if message else "") + attachment_text
 
+    import time
+    start_time = time.time()
     try:
         assistant, citations = run_chat(
             db, user_id=user.id, agent=agent, session=session,
             user_text=user_text, attachments=attachments_meta,
             images=image_payloads, original_message=message,
         )
+        duration = round(time.time() - start_time, 2)
+        assistant.duration = duration
+        db.add(assistant)
     except Exception as e:
         db.rollback()
         raise HTTPException(502, f"LLM error: {e}")
@@ -153,6 +158,7 @@ async def chat(
         citations=[CitationOut(document_id=c.document_id, snippet=c.snippet, score=c.score) for c in citations],
         tokens_in=assistant.tokens_in,
         tokens_out=assistant.tokens_out,
+        duration=duration,
     )
 
 

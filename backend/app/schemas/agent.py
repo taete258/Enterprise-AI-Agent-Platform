@@ -63,3 +63,5 @@ class ChatResponse(BaseModel):
     citations: list[CitationOut] = []
     tokens_in: int = 0
     tokens_out: int = 0
+    duration: float | None = None
+

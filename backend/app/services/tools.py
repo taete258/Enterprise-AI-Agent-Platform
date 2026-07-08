@@ -11,28 +11,38 @@ from ..providers.image_client import get_image_client
 from ..db.session import SessionLocal
 
 
-def _get_image_generation_model() -> tuple[str, dict]:
+def _get_image_generation_model(model_db_id: int | None = None) -> tuple[str, dict]:
     """
     Query for a model with supports_image_generation=True.
-    Returns (provider_kind, model_config_dict) where model_config_dict has model_id and optionally model name.
+    If model_db_id is provided, queries that specific model instead.
+    Returns (provider_kind, opts_dict) where opts_dict contains model and base_url.
     Falls back to default if none found.
     """
+    from sqlalchemy.orm import joinedload
     db = SessionLocal()
     try:
-        # Query for first active model that supports image generation
-        model = db.scalar(
-            select(LLMModel)
-            .where(LLMModel.supports_image_generation == True, LLMModel.is_active == True)
-        )
+        query = select(LLMModel).options(joinedload(LLMModel.provider))
+        if model_db_id is not None:
+            query = query.where(LLMModel.id == model_db_id)
+        else:
+            query = query.where(LLMModel.supports_image_generation == True, LLMModel.is_active == True)
+
+        model = db.scalar(query)
         if model and model.provider:
-            return model.provider.kind, {"model": model.model_id}
-    except Exception:
-        pass
+            opts = {"model": model.model_id}
+            if model.provider.base_url:
+                opts["base_url"] = model.provider.base_url
+            print(f"[image-gen] using provider={model.provider.kind} model={model.model_id} base_url={model.provider.base_url}")
+            return model.provider.kind, opts
+        print(f"[image-gen] no model found for ID={model_db_id}, using fallback")
+    except Exception as e:
+        print(f"[image-gen] DB query failed: {e}")
     finally:
         db.close()
 
     # Fallback to default
     return "openrouter", {"model": "google/gemini-2.5-flash-image-preview"}
+
 
 
 def safe_eval(expr: str) -> str:
@@ -71,11 +81,13 @@ def _run_generate_image(tool: Tool | None, args: dict, agent_config_str: str) ->
     provider = None
     opts = {}
     model_used = None
+    model_db_id = None
 
     # Check agent config first
     if agent_config_str:
         try:
             agent_cfg = json.loads(agent_config_str) or {}
+            model_db_id = agent_cfg.get("model_db_id")
             if isinstance(agent_cfg.get("image"), dict):
                 opts.update(agent_cfg["image"])
             if agent_cfg.get("provider"):
@@ -83,24 +95,31 @@ def _run_generate_image(tool: Tool | None, args: dict, agent_config_str: str) ->
         except Exception:
             pass
 
-    # Check tool config if no agent override
-    if not provider and tool:
-        try:
-            provider = tool.url
-            if tool.headers:
-                tool_opts = json.loads(tool.headers)
-                opts.update(tool_opts)
-        except Exception:
-            pass
+    # If we have model_db_id, resolve provider, model and base_url using it
+    if model_db_id is not None:
+        db_provider, db_opts = _get_image_generation_model(model_db_id=model_db_id)
+        provider = db_provider
+        opts = db_opts
+        model_used = db_opts.get("model")
+    else:
+        # Check tool config if no agent override
+        if not provider and tool:
+            try:
+                provider = tool.url
+                if tool.headers:
+                    tool_opts = json.loads(tool.headers)
+                    opts.update(tool_opts)
+            except Exception:
+                pass
 
-    # Query database for models with supports_image_generation if no explicit config
-    if not provider or not opts.get("model"):
-        db_provider, db_opts = _get_image_generation_model()
-        if not provider:
-            provider = db_provider
-        if not opts.get("model"):
-            opts.update(db_opts)
-            model_used = db_opts.get("model")
+        # Query database for models with supports_image_generation if no explicit config
+        if not provider or not opts.get("model"):
+            db_provider, db_opts = _get_image_generation_model()
+            if not provider:
+                provider = db_provider
+            if not opts.get("model"):
+                opts.update(db_opts)
+                model_used = db_opts.get("model")
 
     # Final fallback
     if not provider:
@@ -116,6 +135,7 @@ def _run_generate_image(tool: Tool | None, args: dict, agent_config_str: str) ->
     except Exception as e:
         return f"Image generation failed: {e}"
 
+
     if not images:
         return "Image generation returned no images."
 
@@ -126,7 +146,7 @@ def _run_generate_image(tool: Tool | None, args: dict, agent_config_str: str) ->
         key = f"{sha[:2]}/{sha}.png"
         if not storage.object_exists(bucket, key):
             storage.put_object(bucket, key, img_bytes, content_type="image/png")
-        out.append({"url": storage.presigned_url(bucket, key), "key": key})
+        out.append({"url": storage.public_url(bucket, key), "key": key})
     return json.dumps({"prompt": prompt, "size": size, "model": model_used, "images": out})
 
 

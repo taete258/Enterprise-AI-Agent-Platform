@@ -145,10 +145,83 @@ class OpenRouterImageClient:
         return out
 
 
+class OllamaImageClient:
+    """Image generation via Ollama's /api/generate endpoint.
+
+    Used for image-only models like Flux (x/flux2-klein).
+    Ollama returns base64-encoded images in ``response.images``.
+    """
+
+    def __init__(self, model: str = "x/flux2-klein:latest", base_url: str = ""):
+        self.model = model
+        # Derive base host: strip /v1 suffix if present
+        base = (base_url or "http://ollama:11434").rstrip("/")
+        if base.endswith("/v1"):
+            base = base[:-3]
+        self.base_url = base
+
+    def _get_base_url(self) -> str:
+        """Try to get base_url from DB provider config if not set at init."""
+        if self.base_url and self.base_url != "http://ollama:11434":
+            return self.base_url
+        from ..db.session import SessionLocal
+        from ..models.llm import LLMProvider
+        db = SessionLocal()
+        try:
+            prov = db.query(LLMProvider).filter(
+                LLMProvider.kind == "ollama", LLMProvider.is_active == True
+            ).first()
+            if prov and prov.base_url:
+                base = prov.base_url.rstrip("/")
+                return base[:-3] if base.endswith("/v1") else base
+        except Exception:
+            pass
+        finally:
+            db.close()
+        return "http://ollama:11434"
+
+    def generate(self, prompt: str, size: str = "1024x1024", n: int = 1, **opts) -> list[bytes]:
+        import httpx
+
+        base = self._get_base_url()
+        payload = {
+            "model": self.model,
+            "prompt": prompt,
+            "stream": False,
+        }
+        with httpx.Client(timeout=300.0) as client:
+            resp = client.post(f"{base}/api/generate", json=payload)
+            if resp.status_code >= 400:
+                raise RuntimeError(f"Ollama {resp.status_code}: {resp.text[:500]}")
+            data = resp.json()
+
+        out: list[bytes] = []
+        # Ollama returns a single base64 image string in the "image" key
+        img_val = data.get("image")
+        if img_val:
+            try:
+                out.append(base64.b64decode(img_val))
+            except Exception:
+                pass
+        # Fallback to "images" if it returns an array
+        for b64 in data.get("images") or []:
+            try:
+                out.append(base64.b64decode(b64))
+            except Exception:
+                pass
+        return out
+
+
 def get_image_client(provider: str, opts: dict) -> ImageProviderClient:
     provider = (provider or "openai").lower()
     if provider == "openai":
         return OpenAIImageClient(model=opts.get("model", "gpt-image-1"))
     if provider == "openrouter":
         return OpenRouterImageClient(model=opts.get("model", "openai/dall-e-3"))
+    if provider in ("ollama", "local"):
+        return OllamaImageClient(
+            model=opts.get("model", "x/flux2-klein:latest"),
+            base_url=opts.get("base_url", ""),
+        )
     raise RuntimeError(f"Unsupported image provider: {provider}")
+

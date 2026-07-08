@@ -48,10 +48,31 @@ def _all_buckets() -> list[str]:
 
 
 def ensure_buckets() -> None:
+    import json
     client = _client()
+    s = get_settings()
     for bucket in _all_buckets():
         if not client.bucket_exists(bucket):
             client.make_bucket(bucket)
+        
+        # Set public read-only policy on the images bucket so they can be fetched directly without signature
+        if bucket == s.minio_bucket_images:
+            policy = {
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Effect": "Allow",
+                        "Principal": {"AWS": ["*"]},
+                        "Action": ["s3:GetObject"],
+                        "Resource": [f"arn:aws:s3:::{bucket}/*"]
+                    }
+                ]
+            }
+            try:
+                client.set_bucket_policy(bucket, json.dumps(policy))
+                print(f"[storage] Set public read-only policy on bucket: {bucket}")
+            except Exception as e:
+                print(f"[storage] Failed to set policy on bucket {bucket}: {e}")
 
 
 def put_object(bucket: str, key: str, data: bytes, content_type: str = "application/octet-stream") -> str:
@@ -93,3 +114,10 @@ def presigned_url(bucket: str, key: str, expiry: int | None = None) -> str:
     s = get_settings()
     seconds = expiry if expiry is not None else s.minio_presign_expiry
     return _presign_client().presigned_get_object(bucket, key, expires=timedelta(seconds=seconds))
+
+
+def public_url(bucket: str, key: str) -> str:
+    s = get_settings()
+    base = s.minio_public_endpoint or f"http://{s.minio_endpoint}"
+    return f"{base.rstrip('/')}/{bucket}/{key}"
+

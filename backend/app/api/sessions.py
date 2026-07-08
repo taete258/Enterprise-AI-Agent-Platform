@@ -30,6 +30,7 @@ class MessageOut(BaseModel):
     tool_call_id: str | None = None
     tokens_in: int = 0
     tokens_out: int = 0
+    duration: float | None = None
     citations: list[CitationOut] = []
     created_at: datetime
 

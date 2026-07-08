@@ -13,8 +13,10 @@ from .deps import require_superuser
 
 def _client_from_config(kind: str, api_key: str, base_url: str):
     k = (kind or "").lower()
-    if k in ("openai", "openrouter", "local"):
-        return OpenAIClient(api_key=api_key, base_url=base_url)
+    if k in ("openai", "openrouter", "local", "ollama"):
+        if k == "ollama" and not base_url:
+            base_url = "http://ollama:11434/v1"
+        return OpenAIClient(api_key=api_key or "ollama", base_url=base_url, kind=k)
     if k == "anthropic":
         return AnthropicClient(api_key=api_key, base_url=base_url)
     raise ValueError(f"Unsupported provider kind: {kind}")

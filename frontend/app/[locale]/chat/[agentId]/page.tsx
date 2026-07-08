@@ -45,6 +45,7 @@ type Msg = {
   citations?: any[];
   tokens_in?: number;
   tokens_out?: number;
+  duration?: number;
   tool_calls?: any;
   tool_call_id?: string;
   attachments?: Attachment[];
@@ -141,14 +142,9 @@ function parseImageGenerationJson(content: string): { model?: string; prompt?: s
  * saved before the `key` field was introduced.
  */
 function resolveImageUrl(img: { url?: string; key?: string }): string {
-  if (img.key) {
-    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-    // The endpoint handles auth via the Authorization header but since we use
-    // <img src=...> we embed the token as a query param for convenience.
-    const base = `${API_URL}/api/images/${img.key}`;
-    return token ? `${base}?token=${encodeURIComponent(token)}` : base;
-  }
-  return img.url || "";
+  if (!img.url) return "";
+  // Strip presigned parameters (everything after ?) since the bucket is public
+  return img.url.split("?")[0];
 }
 
 function ImageWithFallback({ src, alt }: { src: string; alt: string }) {
@@ -389,6 +385,28 @@ export default function ChatPage() {
     }
   }
 
+  async function handleImageModelChange(value: string) {
+    if (!canEdit) return;
+    const existing = agentTools.find((at) => at.tool_key === "generate_image");
+    const nextConfig = (value && value !== "default") ? JSON.stringify({ model_db_id: Number(value) }) : "{}";
+    const updated = allTools.map((t) => {
+      const bound = agentTools.find((at) => at.tool_key === t.key);
+      const isEnabled = bound ? bound.enabled : false;
+      const conf = t.key === "generate_image" ? nextConfig : (bound?.config || "{}");
+      return { tool_key: t.key, enabled: isEnabled, config: conf };
+    });
+    try {
+      setModelBusy(true);
+      await agents.updateTools(id, updated);
+      const bound = await agents.listTools(id);
+      setAgentTools(bound);
+    } catch (e: any) {
+      alert("Failed to update image model: " + e.message);
+    } finally {
+      setModelBusy(false);
+    }
+  }
+
   async function handleRenameSession() {
     if (!renameTarget || !renameTitle.trim()) return;
     try {
@@ -536,6 +554,7 @@ export default function ChatPage() {
       id: m.id,
       role: m.role, content: m.content, citations: m.citations,
       tokens_in: m.tokens_in, tokens_out: m.tokens_out,
+      duration: m.duration,
       tool_calls: m.tool_calls, tool_call_id: m.tool_call_id,
       attachments: parseAttachments(m.attachments),
     };
@@ -750,6 +769,7 @@ export default function ChatPage() {
             allTools={allTools}
             agentTools={agentTools}
             toggleTool={toggleTool}
+            handleImageModelChange={handleImageModelChange}
           />
         ) : undefined
       }
@@ -1457,6 +1477,19 @@ function Bubble({ msg, msgs = [], msgIndex = -1 }: { msg: Msg; msgs?: Msg[]; msg
             ))}
           </div>
         )}
+        {!isUser && !isTool && (msg.tokens_in || msg.tokens_out || msg.duration) && (
+          <div className="text-[10px] text-muted-foreground/60 font-mono mt-1.5 pl-1 flex items-center gap-1.5 select-none">
+            {msg.duration != null && (
+              <span>{t("duration", { sec: msg.duration })}</span>
+            )}
+            {msg.duration != null && (msg.tokens_in || msg.tokens_out) && (
+              <span>·</span>
+            )}
+            {(msg.tokens_in || msg.tokens_out) && (
+              <span>{t("tokensInfo", { in: msg.tokens_in || 0, out: msg.tokens_out || 0 })}</span>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1532,13 +1565,29 @@ function AttachmentItem({ messageId, attachment }: { messageId?: number; attachm
 }
 
 function TypingBubble() {
+  const t = useTranslations("ChatPage");
+  const [elapsed, setElapsed] = useState(0);
+
+  useEffect(() => {
+    const start = Date.now();
+    const timer = setInterval(() => {
+      setElapsed((Date.now() - start) / 1000);
+    }, 100);
+    return () => clearInterval(timer);
+  }, []);
+
   return (
     <div className="flex gap-4">
       <div className="w-7 h-7 rounded-md bg-accent text-accent-foreground grid place-items-center text-[11px] font-serif font-semibold shrink-0 mt-1">A</div>
-      <div className="bg-card text-foreground border border-border/80 rounded-2xl rounded-tl-none px-4 py-3.5 shadow-sm mr-auto w-fit flex items-center gap-1.5">
-        <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-blink" />
-        <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-blink" style={{ animationDelay: ".15s" }} />
-        <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-blink" style={{ animationDelay: ".3s" }} />
+      <div className="flex flex-col gap-1 mr-auto">
+        <div className="bg-card text-foreground border border-border/80 rounded-2xl rounded-tl-none px-4 py-3.5 shadow-sm w-fit flex items-center gap-1.5">
+          <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-blink" />
+          <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-blink" style={{ animationDelay: ".15s" }} />
+          <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-blink" style={{ animationDelay: ".3s" }} />
+        </div>
+        <span className="text-[10px] text-muted-foreground/60 font-mono pl-1 select-none">
+          {t("waiting", { sec: elapsed.toFixed(1) })}
+        </span>
       </div>
     </div>
   );
@@ -1546,17 +1595,31 @@ function TypingBubble() {
 
 function Inspector({
   agent, totalIn, totalOut, msgCount, models, canEdit, modelBusy, handleModelChange, modelErr,
-  allTools, agentTools, toggleTool
+  allTools, agentTools, toggleTool, handleImageModelChange
 }: {
   agent: any; totalIn: number; totalOut: number; msgCount: number;
   models: any[]; canEdit: boolean; modelBusy: boolean; handleModelChange: (val: string) => void;
   modelErr: string;
   allTools: any[]; agentTools: any[]; toggleTool: (key: string, enabled: boolean) => Promise<void>;
+  handleImageModelChange?: (val: string) => void;
 }) {
   const t = useTranslations("ChatPage");
   if (!agent) return <div className="p-5 text-[11px] text-muted-foreground">Loading…</div>;
   const currentModel = models.find((m) => m.id === agent.model_id);
   const currentModelName = currentModel ? (currentModel.display_name || currentModel.model_id) : `Model #${agent.model_id}`;
+
+  const imageTool = agentTools.find((at) => at.tool_key === "generate_image");
+  const isImageGenEnabled = imageTool ? imageTool.enabled : false;
+  let selectedImageModelId = "";
+  if (imageTool && imageTool.config) {
+    try {
+      const parsed = JSON.parse(imageTool.config);
+      if (parsed.model_db_id) {
+        selectedImageModelId = String(parsed.model_db_id);
+      }
+    } catch { }
+  }
+  const imageModels = models.filter((m) => m.supports_image_generation && m.is_active);
 
   return (
     <div className="flex flex-col h-full relative">
@@ -1602,6 +1665,8 @@ function Inspector({
             )}
           </div>
 
+
+
           <Row k="Visibility" v={agent.is_published ? "published" : "private"} />
         </div>
 
@@ -1614,26 +1679,53 @@ function Inspector({
               const bound = agentTools.find((at) => at.tool_key === tool.key);
               const enabled = bound ? bound.enabled : false;
               return (
-                <label key={tool.key} className="flex items-start gap-2.5 p-2 rounded-lg border border-border/80 bg-card hover:bg-accent/40 cursor-pointer text-[12.5px] transition-colors">
-                  <input
-                    type="checkbox"
-                    checked={enabled}
-                    disabled={!canEdit}
-                    onChange={() => toggleTool(tool.key, enabled)}
-                    className="mt-0.5 w-3.5 h-3.5 accent-primary"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="font-medium text-foreground flex items-center justify-between">
-                      <span>{tool.name}</span>
-                      {tool.type === "system" ? (
-                        <span className="text-[8.5px] text-muted-foreground font-mono bg-muted px-1 rounded">sys</span>
+                <div key={tool.key} className="flex flex-col gap-2 p-2 rounded-lg border border-border/80 bg-card text-[12.5px]">
+                  <div className="flex items-start gap-2.5">
+                    <input
+                      type="checkbox"
+                      checked={enabled}
+                      disabled={!canEdit}
+                      onChange={() => toggleTool(tool.key, enabled)}
+                      className="mt-0.5 w-3.5 h-3.5 accent-primary cursor-pointer"
+                      id={`tool-chk-${tool.key}`}
+                    />
+                    <label htmlFor={`tool-chk-${tool.key}`} className="min-w-0 flex-1 cursor-pointer">
+                      <div className="font-medium text-foreground flex items-center justify-between">
+                        <span>{tool.name}</span>
+                        {tool.type === "system" ? (
+                          <span className="text-[8.5px] text-muted-foreground font-mono bg-muted px-1 rounded">sys</span>
+                        ) : (
+                          <span className="text-[8.5px] text-primary font-mono bg-primary/10 px-1 rounded">api</span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-muted-foreground truncate" title={tool.description}>{tool.description}</p>
+                    </label>
+                  </div>
+                  {tool.key === "generate_image" && enabled && imageModels.length > 0 && (
+                    <div className="pl-6 mt-0.5 flex items-center justify-between gap-2 text-[11px] border-t border-border/40 pt-1.5">
+                      <span className="text-muted-foreground shrink-0">Model</span>
+                      {canEdit && handleImageModelChange ? (
+                        <Select value={selectedImageModelId || "default"} onValueChange={handleImageModelChange} disabled={modelBusy}>
+                          <SelectTrigger className="h-6 text-[10px] px-2 py-0.5 bg-background border-border min-w-[125px] max-w-[170px]">
+                            <SelectValue placeholder="Default (first active)" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="default" className="text-[10px]">Default (first active)</SelectItem>
+                            {imageModels.map((m) => (
+                              <SelectItem key={m.id} value={String(m.id)} className="text-[10px]">
+                                {m.display_name || m.model_id}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       ) : (
-                        <span className="text-[8.5px] text-primary font-mono bg-primary/10 px-1 rounded">api</span>
+                        <span className="font-mono text-foreground">
+                          {models.find((m) => String(m.id) === selectedImageModelId)?.display_name || "Default"}
+                        </span>
                       )}
                     </div>
-                    <p className="text-[11px] text-muted-foreground truncate" title={tool.description}>{tool.description}</p>
-                  </div>
-                </label>
+                  )}
+                </div>
               );
             })}
             {allTools.length === 0 && (

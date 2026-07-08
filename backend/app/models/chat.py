@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import String, ForeignKey, DateTime, Text, Integer, Boolean
+from sqlalchemy import String, ForeignKey, DateTime, Text, Integer, Boolean, Float
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from ..db.session import Base
 
@@ -42,6 +42,7 @@ class Message(Base):
     tool_call_id: Mapped[str | None] = mapped_column(String(128), nullable=True)  # response to tool call ID
     tokens_in: Mapped[int] = mapped_column(Integer, default=0)
     tokens_out: Mapped[int] = mapped_column(Integer, default=0)
+    duration: Mapped[float | None] = mapped_column(Float, nullable=True)  # Generation duration in seconds
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.utcnow())
 
     session: Mapped[ChatSession] = relationship(back_populates="messages")

@@ -187,7 +187,10 @@
     "emptyGroup": "ยังไม่มีแชท",
     "save": "บันทึก",
     "cancel": "ยกเลิก",
-    "create": "สร้าง"
+    "create": "สร้าง",
+    "duration": "เวลาประมวลผล: {sec} วินาที",
+    "tokensInfo": "โทเค็น: เข้า {in} / ออก {out}",
+    "waiting": "กำลังรอ: {sec} วินาที"
   },
   "DashboardPage": {
     "title": "Usage",

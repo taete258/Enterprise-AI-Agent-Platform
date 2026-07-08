@@ -29,6 +29,7 @@ def _init_db() -> None:
         "ALTER TABLE chat_sessions ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()",
         "ALTER TABLE llm_models ADD COLUMN IF NOT EXISTS supports_image_generation BOOLEAN DEFAULT FALSE",
         "ALTER TABLE roles ADD COLUMN IF NOT EXISTS description VARCHAR(512) DEFAULT ''",
+        "ALTER TABLE messages ADD COLUMN IF NOT EXISTS duration DOUBLE PRECISION",
     ]
     for sql in _safe_migrations:
         try:

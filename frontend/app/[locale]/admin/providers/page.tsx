@@ -18,6 +18,7 @@ const KINDS = [
   { v: "anthropic",  label: "Anthropic" },
   { v: "openrouter", label: "OpenRouter" },
   { v: "local",      label: "Local (OpenAI-compatible)" },
+  { v: "ollama",     label: "Ollama" },
 ];
 
 type TestState = { status: "idle" | "testing" | "ok" | "fail"; msg?: string };
@@ -38,7 +39,7 @@ export default function ProvidersPage() {
   useEffect(() => { load().catch((e) => setErr(e.message)); }, []);
 
   async function testNew() {
-    if (!form.api_key && form.kind !== "local") {
+    if (!form.api_key && form.kind !== "local" && form.kind !== "ollama") {
       setCreateTest({ status: "fail", msg: t("enterApiKey") });
       return;
     }
@@ -73,7 +74,8 @@ export default function ProvidersPage() {
   async function testEdit(id: number, kind: string) {
     setEditTest({ status: "testing" });
     try {
-      const r = editForm.api_key
+      const isKeyless = kind === "local" || kind === "ollama";
+      const r = (editForm.api_key || isKeyless)
         ? await llm.testConfig({ kind, base_url: editForm.base_url, api_key: editForm.api_key })
         : await llm.testProvider(id);
       setEditTest(r.ok

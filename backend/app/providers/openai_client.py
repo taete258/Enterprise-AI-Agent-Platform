@@ -15,6 +15,8 @@ class OpenAIClient:
     def list_models(self) -> list[dict]:
         if self._kind == "openrouter":
             return self._list_openrouter_models()
+        if self._kind == "ollama":
+            return self._list_ollama_models()
         resp = self._c.models.list()
         return [{"id": m.id, "display": m.id, "capabilities": []} for m in resp.data]
 
@@ -39,6 +41,34 @@ class OpenAIClient:
             if "audio" in in_mod or "audio" in out_mod:
                 caps.append("audio")
             result.append({"id": m["id"], "display": m.get("name", m["id"]), "capabilities": caps})
+        return result
+
+    def _list_ollama_models(self) -> list[dict]:
+        """Fetch models from Ollama's native /api/tags endpoint."""
+        import httpx
+        # Derive base host from the configured base_url (e.g. http://ollama:11434/v1 → http://ollama:11434)
+        base = (self._base_url or "http://localhost:11434").rstrip("/")
+        if base.endswith("/v1"):
+            base = base[:-3]
+        try:
+            resp = httpx.get(f"{base}/api/tags", timeout=10)
+            resp.raise_for_status()
+            models = resp.json().get("models", [])
+        except Exception:
+            # Fallback to OpenAI-compatible /v1/models
+            resp2 = self._c.models.list()
+            return [{"id": m.id, "display": m.id, "capabilities": []} for m in resp2.data]
+
+        result = []
+        for m in models:
+            name = m.get("name", "")
+            family = (m.get("details", {}).get("family") or "").lower()
+            caps = ["text"]
+            if any(k in name.lower() for k in ("vision", "llava", "moondream", "minicpm-v", "bakllava")):
+                caps.append("vision")
+            if any(k in family for k in ("llama", "qwen", "mistral", "phi")):
+                caps.append("tools")
+            result.append({"id": name, "display": name, "capabilities": caps})
         return result
 
     def test(self) -> dict:
