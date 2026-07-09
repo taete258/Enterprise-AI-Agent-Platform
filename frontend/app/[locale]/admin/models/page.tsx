@@ -219,7 +219,7 @@ export default function ModelsPage() {
           <table className="w-full text-[13px]">
             <thead>
               <tr className="bg-muted border-b border-border">
-                {[t("provider"), t("modelId"), t("displayName"), "in $/1k", "out $/1k", "Capabilities", ""].map((h, i) => (
+                {[t("provider"), t("modelId"), t("displayName"), t("costInCol"), t("costOutCol"), t("capabilities"), ""].map((h, i) => (
                   <th key={i} className={`${i === 3 || i === 4 ? "text-right" : "text-left"} px-3 py-2.5 text-[10.5px] font-semibold uppercase tracking-wider text-muted-foreground`}>{h}</th>
                 ))}
               </tr>
@@ -236,9 +236,9 @@ export default function ModelsPage() {
                     <td className="px-3 py-2.5 text-right font-mono">{m.output_cost_per_1k}</td>
                     <td className="px-3 py-2.5">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <Badge variant="outline" className="text-[11px]">text</Badge>
-                        {m.supports_vision && <Badge variant="success" className="text-[11px]"><Eye className="size-3 mr-1" />vision</Badge>}
-                        {m.supports_image_generation && <Badge variant="secondary" className="text-[11px]"><Image className="size-3 mr-1" />image gen</Badge>}
+                        <Badge variant="outline" className="text-[11px]">{t("text")}</Badge>
+                        {m.supports_vision && <Badge variant="success" className="text-[11px]"><Eye className="size-3 mr-1" />{t("vision")}</Badge>}
+                        {m.supports_image_generation && <Badge variant="secondary" className="text-[11px]"><Image className="size-3 mr-1" />{t("imageGen")}</Badge>}
                       </div>
                     </td>
                     <td className="px-3 py-2.5 text-right">
@@ -247,7 +247,7 @@ export default function ModelsPage() {
                           type="button"
                           onClick={() => startEdit(m)}
                           className="p-1.5 text-muted-foreground hover:text-primary rounded-md hover:bg-accent transition-colors cursor-pointer"
-                          title="Edit"
+                          title={t("edit")}
                         >
                           <Edit2 className="size-3.5" />
                         </button>
@@ -275,7 +275,7 @@ export default function ModelsPage() {
       <Dialog open={!!editingModel} onOpenChange={(open) => !open && setEditingModel(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit Model</DialogTitle>
+            <DialogTitle>{t("editModel")}</DialogTitle>
             <DialogDescription>
               {editingModel?.model_id}
             </DialogDescription>
@@ -337,7 +337,7 @@ export default function ModelsPage() {
               <Button variant="outline" type="button" onClick={() => setEditingModel(null)}>
                 {t("cancel")}
               </Button>
-              <Button type="submit">Save Changes</Button>
+              <Button type="submit">{t("saveChanges")}</Button>
             </DialogFooter>
           </form>
         </DialogContent>

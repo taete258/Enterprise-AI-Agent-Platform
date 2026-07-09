@@ -198,9 +198,9 @@ export default function ToolsPage() {
                 }}
                 className="text-[13px] px-3 py-2 rounded-md border border-input bg-background h-9"
               >
-                <option value="">All Types</option>
-                <option value="api">API</option>
-                <option value="system">System</option>
+                <option value="">{t("allTypes")}</option>
+                <option value="api">{t("api")}</option>
+                <option value="system">{t("system")}</option>
               </select>
             </div>
 
@@ -259,10 +259,10 @@ export default function ToolsPage() {
                   <td className="px-4 py-4 text-[12px]">
                     <div className="space-y-0.5">
                       <div className="text-muted-foreground">
-                        <span className="font-medium">In:</span> ${(tool.cost_per_1m_input_tokens || 0).toFixed(4)}
+                        <span className="font-medium">{t("in")}</span> ${(tool.cost_per_1m_input_tokens || 0).toFixed(4)}
                       </div>
                       <div className="text-muted-foreground">
-                        <span className="font-medium">Out:</span> ${(tool.cost_per_1m_output_tokens || 0).toFixed(4)}
+                        <span className="font-medium">{t("out")}</span> ${(tool.cost_per_1m_output_tokens || 0).toFixed(4)}
                       </div>
                     </div>
                   </td>
@@ -403,7 +403,7 @@ export default function ToolsPage() {
               </div>
 
               <div className="space-y-1.5 col-span-2">
-                <Label>Model Capabilities</Label>
+                <Label>{t("modelCapabilities")}</Label>
                 <div className="flex gap-3 flex-wrap p-3 rounded-md border border-input bg-transparent">
                   {["text", "image", "audio", "video"].map((cap) => (
                     <label key={cap} className="flex items-center gap-2 cursor-pointer">
@@ -429,7 +429,7 @@ export default function ToolsPage() {
 
               <div className="grid grid-cols-2 gap-4 col-span-2">
                 <div className="space-y-1.5">
-                  <Label htmlFor="input-cost">Cost per 1M Input Tokens ($)</Label>
+                  <Label htmlFor="input-cost">{t("costInputMillion")}</Label>
                   <Input
                     id="input-cost"
                     type="number"
@@ -440,7 +440,7 @@ export default function ToolsPage() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="output-cost">Cost per 1M Output Tokens ($)</Label>
+                  <Label htmlFor="output-cost">{t("costOutputMillion")}</Label>
                   <Input
                     id="output-cost"
                     type="number"

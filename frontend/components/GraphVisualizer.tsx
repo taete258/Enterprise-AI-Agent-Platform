@@ -2,6 +2,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Card, CardContent, Button, Input } from "@taete258/ds";
 import { Search, ZoomIn, ZoomOut, RefreshCw, X, Info } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 interface Node {
   id: number;
@@ -41,6 +42,7 @@ const TYPE_COLORS: Record<string, { bg: string; border: string; glow: string }> 
 };
 
 export default function GraphVisualizer({ data, onRefresh }: GraphVisualizerProps) {
+  const t = useTranslations("KnowledgePage");
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -503,7 +505,7 @@ export default function GraphVisualizer({ data, onRefresh }: GraphVisualizerProp
 
         {/* Legend */}
         <div className="absolute top-4 left-4 bg-slate-900/80 backdrop-blur-sm border border-slate-800/70 rounded-lg p-2.5 z-10 space-y-1.5 shadow-md">
-          <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">ประเภทเอนทิตี</span>
+          <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">{t("entityType")}</span>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-3 gap-y-1 text-[11px] text-slate-300">
             {Object.entries(TYPE_COLORS).map(([type, colors]) => {
               if (type === "Default") return null;
@@ -561,7 +563,7 @@ export default function GraphVisualizer({ data, onRefresh }: GraphVisualizerProp
                   </button>
                 ))}
               {nodes.filter((n) => n.label.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 && (
-                <div className="p-3 text-center text-xs text-slate-500">ไม่พบเอนทิตีที่สอดคล้อง</div>
+                <div className="p-3 text-center text-xs text-slate-500">{t("noEntityMatch")}</div>
               )}
             </div>
           )}
@@ -595,16 +597,16 @@ export default function GraphVisualizer({ data, onRefresh }: GraphVisualizerProp
               <div className="space-y-3">
                 <div className="space-y-1">
                   <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1">
-                    <Info className="size-3" /> ข้อมูลบริบทความเชื่อมโยง
+                    <Info className="size-3" /> {t("contextRelationInfo")}
                   </span>
                   <p className="text-xs text-slate-300 leading-relaxed bg-slate-950/40 border border-slate-800/50 p-2.5 rounded-lg whitespace-pre-wrap">
-                    {selectedNode.description || "ไม่มีคำอธิบายเพิ่มเติม"}
+                    {selectedNode.description || t("noAdditionalDesc")}
                   </p>
                 </div>
 
                 {/* Show connected relationships */}
                 <div className="space-y-2">
-                  <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">เส้นความสัมพันธ์ความรู้</span>
+                  <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">{t("knowledgeRelLine")}</span>
                   <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
                     {edges
                       .filter((e) => e.source === selectedNode.id || e.target === selectedNode.id)
@@ -620,7 +622,7 @@ export default function GraphVisualizer({ data, onRefresh }: GraphVisualizerProp
                             className="p-2 bg-slate-950/20 hover:bg-slate-850/40 border border-slate-850/50 rounded-md text-[11px] text-slate-300 cursor-pointer transition-colors"
                           >
                             <div className="flex items-center justify-between font-medium">
-                              <span className="truncate max-w-[90px]">{isSource ? "เชื่อมโยงกับ" : "เชื่อมต่อจาก"}</span>
+                              <span className="truncate max-w-[90px]">{isSource ? t("linkedWith") : t("connectedFrom")}</span>
                               <span className="text-[9px] px-1 rounded bg-slate-800 text-slate-400 font-mono">{edge.type}</span>
                             </div>
                             <div className="text-slate-400 mt-1 font-semibold truncate hover:underline">
@@ -633,7 +635,7 @@ export default function GraphVisualizer({ data, onRefresh }: GraphVisualizerProp
                         );
                       })}
                     {edges.filter((e) => e.source === selectedNode.id || e.target === selectedNode.id).length === 0 && (
-                      <div className="text-[11px] text-slate-500 italic p-1">ไม่มีโหนดเชื่อมโยงโดยตรง</div>
+                      <div className="text-[11px] text-slate-500 italic p-1">{t("noDirectLinkNode")}</div>
                     )}
                   </div>
                 </div>
@@ -644,9 +646,9 @@ export default function GraphVisualizer({ data, onRefresh }: GraphVisualizerProp
               <div className="size-10 rounded-full bg-slate-950/60 border border-slate-800 grid place-items-center mb-3">
                 <Info className="size-5 text-slate-500" />
               </div>
-              <p className="text-xs font-medium text-slate-300">รายละเอียดโครงข่าย</p>
+              <p className="text-xs font-medium text-slate-300">{t("networkDetails")}</p>
               <p className="text-[11px] text-slate-500 mt-1 max-w-[200px]">
-                คลิกเลือกโหนดใดโหนดหนึ่งบนแผนภาพเพื่อดูข้อมูลความสัมพันธ์เชิงลึก
+                {t("clickNodeToViewDetails")}
               </p>
             </div>
           )}

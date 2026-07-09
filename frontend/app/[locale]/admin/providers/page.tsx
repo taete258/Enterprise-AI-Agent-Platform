@@ -228,7 +228,7 @@ export default function ProvidersPage() {
                             {t("active")}
                           </label>
                           <div className="sm:col-span-2 space-y-1.5">
-                            <Label>Base URL</Label>
+                            <Label>{t("baseUrlLabel")}</Label>
                             <Input placeholder="https://api.openai.com/v1" value={editForm.base_url}
                                    onChange={(e) => setEditForm({ ...editForm, base_url: e.target.value })} />
                           </div>

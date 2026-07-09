@@ -125,7 +125,7 @@ export default function AuditPage() {
                 }}
                 className="text-[13px] px-3 py-2 rounded-md border border-input bg-background h-9"
               >
-                <option value="">All Actions</option>
+                <option value="">{t("allActions")}</option>
                 {actions.map((a) => (
                   <option key={a} value={a}>{a}</option>
                 ))}
@@ -139,7 +139,7 @@ export default function AuditPage() {
                 }}
                 className="text-[13px] px-3 py-2 rounded-md border border-input bg-background h-9"
               >
-                <option value="">All Resources</option>
+                <option value="">{t("allResources")}</option>
                 {resourceTypes.map((r) => (
                   <option key={r} value={r}>{r}</option>
                 ))}

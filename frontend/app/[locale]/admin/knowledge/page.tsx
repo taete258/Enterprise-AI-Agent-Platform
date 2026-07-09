@@ -211,21 +211,20 @@ export default function KnowledgePage() {
                     <X className="size-4" />
                   </Button>
                 </div>
-
                 <div className="space-y-2">
-                  <label className="text-[12px] font-medium text-muted-foreground">File Type Classification</label>
+                  <label className="text-[12px] font-medium text-muted-foreground">{t("fileTypeClassification")}</label>
                   <div className="flex items-center gap-3 p-3 rounded-md bg-accent/50 border">
                     <TypeBadge kind={(selectedDoc.doc_type as any) || classifyFile(selectedDoc.name)} />
                     <div className="text-[13px]">
                       {(selectedDoc.doc_type || classifyFile(selectedDoc.name)) === "structured" ? (
                         <div>
-                          <p className="font-medium text-emerald-700">Structured Data</p>
-                          <p className="text-muted-foreground">CSV, TSV, XLSX, JSON - tabular/record format with keys and values.</p>
+                          <p className="font-medium text-emerald-700">{t("structuredData")}</p>
+                          <p className="text-muted-foreground">{t("structuredDataDesc")}</p>
                         </div>
                       ) : (
                         <div>
-                          <p className="font-medium text-sky-700">Unstructured Text</p>
-                          <p className="text-muted-foreground">PDF, DOCX, TXT, MD - free-form prose and documents.</p>
+                          <p className="font-medium text-sky-700">{t("unstructuredText")}</p>
+                          <p className="text-muted-foreground">{t("unstructuredTextDesc")}</p>
                         </div>
                       )}
                     </div>
@@ -234,39 +233,39 @@ export default function KnowledgePage() {
 
                 <div className="grid grid-cols-2 gap-4 text-[13px]">
                   <div className="p-3 rounded-md bg-muted/40">
-                    <p className="text-muted-foreground mb-1">Content Hash</p>
+                    <p className="text-muted-foreground mb-1">{t("contentHash")}</p>
                     <p className="font-mono text-[11px] break-all">{selectedDoc.content_hash}</p>
                   </div>
                   <div className="p-3 rounded-md bg-muted/40">
-                    <p className="text-muted-foreground mb-1">Description</p>
+                    <p className="text-muted-foreground mb-1">{t("description")}</p>
                     <p>{selectedDoc.description || "—"}</p>
                   </div>
                 </div>
 
                 <div className="pt-2 border-t">
-                  <p className="text-[12px] text-muted-foreground mb-3">Processing Details</p>
+                  <p className="text-[12px] text-muted-foreground mb-3">{t("processingDetails")}</p>
                   <div className="text-[13px] space-y-1">
                     {(selectedDoc.doc_type || classifyFile(selectedDoc.name)) === "structured" && (
                       <ul className="list-disc pl-4 space-y-1">
-                        <li>Data is converted to key:value format</li>
-                        <li>Chunked into semantic segments</li>
-                        <li>Embedded for vector search</li>
-                        <li>Available for RAG queries</li>
+                        <li>{t("structuredDetails1")}</li>
+                        <li>{t("structuredDetails2")}</li>
+                        <li>{t("structuredDetails3")}</li>
+                        <li>{t("structuredDetails4")}</li>
                       </ul>
                     )}
                     {(selectedDoc.doc_type || classifyFile(selectedDoc.name)) === "unstructured" && (
                       <ul className="list-disc pl-4 space-y-1">
-                        <li>Text extracted from document format</li>
-                        <li>Chunked by paragraph boundaries</li>
-                        <li>Embedded for vector search</li>
-                        <li>Available for RAG queries</li>
+                        <li>{t("unstructuredDetails1")}</li>
+                        <li>{t("unstructuredDetails2")}</li>
+                        <li>{t("unstructuredDetails3")}</li>
+                        <li>{t("unstructuredDetails4")}</li>
                       </ul>
                     )}
                   </div>
                 </div>
 
                 <div className="flex gap-2 justify-end pt-2 border-t">
-                  <Button size="sm" variant="outline" onClick={() => setSelectedDoc(null)}>Close</Button>
+                  <Button size="sm" variant="outline" onClick={() => setSelectedDoc(null)}>{t("close")}</Button>
                 </div>
               </CardContent>
             </Card>
@@ -278,7 +277,7 @@ export default function KnowledgePage() {
         {loadingGraph ? (
           <div className="h-[600px] flex flex-col items-center justify-center bg-slate-950/20 rounded-xl border border-slate-900 text-sm text-muted-foreground">
             <div className="size-6 border-2 border-primary border-t-transparent rounded-full animate-spin mb-2" />
-            กำลังดึงข้อมูลและจำลองโครงข่ายความรู้...
+            {t("loadingGraph")}
           </div>
         ) : (
           <GraphVisualizer data={graphData} onRefresh={loadGraph} />

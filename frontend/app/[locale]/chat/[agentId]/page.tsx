@@ -142,13 +142,14 @@ function resolveImageUrl(img: { url?: string; key?: string }): string {
 }
 
 function ImageWithFallback({ src, alt }: { src: string; alt: string }) {
+  const t = useTranslations("ChatPage");
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState(false);
 
   return error ? (
     <div className="flex flex-col items-center justify-center w-full h-full text-muted-foreground gap-2">
       <div className="text-4xl">⚠</div>
-      <div className="text-xs text-center px-2">Image failed to load</div>
+      <div className="text-xs text-center px-2">{t("imageLoadFailed")}</div>
     </div>
   ) : (
     <div className="relative w-full h-full">
@@ -156,7 +157,7 @@ function ImageWithFallback({ src, alt }: { src: string; alt: string }) {
         <div className="absolute inset-0 flex items-center justify-center bg-muted">
           <div className="flex flex-col items-center gap-2 text-muted-foreground">
             <div className="animate-pulse text-2xl">⏳</div>
-            <div className="text-xs">Loading image...</div>
+            <div className="text-xs">{t("loadingImage")}</div>
           </div>
         </div>
       )}
@@ -806,13 +807,13 @@ export default function ChatPage() {
                       onClick={() => toggleSection('pinned')}
                       className="w-full px-3 py-2 flex items-center justify-between hover:bg-accent/40 transition-colors"
                     >
-                      <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Pinned</span>
+                      <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">{t("pinned")}</span>
                       <ChevronRight className={`size-3.5 text-muted-foreground transition-transform ${expandedSections.pinned ? 'rotate-90' : ''}`} />
                     </button>
                     {expandedSections.pinned && (
                       <div className="overflow-y-auto px-2 pb-2 max-h-48">
                         {sessionsList.filter((s) => s.is_pinned && !s.is_archived).length === 0 ? (
-                          <p className="text-[11.5px] text-muted-foreground/60 p-3 text-center italic">No pinned chats</p>
+                          <p className="text-[11.5px] text-muted-foreground/60 p-3 text-center italic">{t("noPinnedChats")}</p>
                         ) : (
                           <div>
                             {sessionsList
@@ -844,7 +845,7 @@ export default function ChatPage() {
                         onClick={() => toggleSection('groups')}
                         className="flex-1 text-left flex items-center gap-2 -mx-3 px-3"
                       >
-                        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Groups</span>
+                        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">{t("groups")}</span>
                       </button>
                       <div className="flex items-center gap-1 opacity-0 group-hover/header:opacity-100 transition-opacity">
                         <div
@@ -866,7 +867,7 @@ export default function ChatPage() {
                     {expandedSections.groups && (
                       <div className="overflow-y-auto px-2 pb-2 max-h-64">
                         {groups.length === 0 ? (
-                          <p className="text-[11.5px] text-muted-foreground/60 p-3 text-center italic">No groups yet</p>
+                          <p className="text-[11.5px] text-muted-foreground/60 p-3 text-center italic">{t("noGroupsYet")}</p>
                         ) : (
                           <div className="space-y-1">
                             {groups.map((group) => {
@@ -933,7 +934,7 @@ export default function ChatPage() {
                     >
                       <div className="flex items-center gap-2">
                         <Link2Off className="size-3 text-muted-foreground" />
-                        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Ungrouped</span>
+                        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">{t("ungrouped")}</span>
                       </div>
                       <ChevronRight className={`size-3.5 text-muted-foreground transition-transform ${expandedSections.ungrouped ? 'rotate-90' : ''}`} />
                     </button>
@@ -966,7 +967,7 @@ export default function ChatPage() {
                               ))}
                           </div>
                         ) : (
-                          <p className="text-[11.5px] text-muted-foreground/60 p-3 text-center italic">Drag here to ungroup</p>
+                          <p className="text-[11.5px] text-muted-foreground/60 p-3 text-center italic">{t("dragToUngroup")}</p>
                         )}
                       </div>
                     )}
@@ -1280,9 +1281,9 @@ export default function ChatPage() {
       <Dialog open={!!groupToDelete} onOpenChange={(open) => !open && setGroupToDelete(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete group?</DialogTitle>
+            <DialogTitle>{t("deleteGroupConfirm")}</DialogTitle>
             <DialogDescription>
-              Delete "{groupToDelete?.name}"? All chats in this group will be moved to the main list.
+              {t("deleteGroupConfirmDesc", { name: groupToDelete?.name })}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="mt-4">
@@ -1290,7 +1291,7 @@ export default function ChatPage() {
               {t("cancel")}
             </Button>
             <Button variant="destructive" onClick={handleDeleteGroup}>
-              Delete
+              {t("delete")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1608,7 +1609,7 @@ function Inspector({
   handleImageModelChange?: (val: string) => void;
 }) {
   const t = useTranslations("ChatPage");
-  if (!agent) return <div className="p-5 text-[11px] text-muted-foreground">Loading…</div>;
+  if (!agent) return <div className="p-5 text-[11px] text-muted-foreground">{t("loading")}</div>;
   const currentModel = models.find((m) => m.id === agent.model_id);
   const currentModelName = currentModel ? (currentModel.display_name || currentModel.model_id) : `Model #${agent.model_id}`;
 
@@ -1632,7 +1633,7 @@ function Inspector({
       </div>
       <div className="p-5 space-y-6 max-h-screen overflow-y-auto pb-20 flex-1">
         <div>
-          <div className="section-h mb-2">Agent</div>
+          <div className="section-h mb-2">{t("agent")}</div>
           <div className="font-serif text-[17px] text-foreground tracking-tight">{agent.name}</div>
           <p className="text-[12px] text-muted-foreground mt-1">{agent.description || t("noDescription")}</p>
         </div>
@@ -1645,7 +1646,7 @@ function Inspector({
           <Row k="Max tokens" v={String(agent.max_tokens)} />
 
           <div className="flex items-center justify-between text-[12px] min-h-[28px]">
-            <span className="text-muted-foreground">Model</span>
+            <span className="text-muted-foreground">{t("model")}</span>
             {canEdit ? (
               <div className="flex flex-col items-end">
                 <Select value={String(agent.model_id)} onValueChange={handleModelChange} disabled={modelBusy}>
@@ -1707,14 +1708,14 @@ function Inspector({
                   </div>
                   {tool.key === "generate_image" && enabled && imageModels.length > 0 && (
                     <div className="pl-6 mt-0.5 flex items-center justify-between gap-2 text-[11px] border-t border-border/40 pt-1.5">
-                      <span className="text-muted-foreground shrink-0">Model</span>
+                      <span className="text-muted-foreground shrink-0">{t("model")}</span>
                       {canEdit && handleImageModelChange ? (
                         <Select value={selectedImageModelId || "default"} onValueChange={handleImageModelChange} disabled={modelBusy}>
                           <SelectTrigger className="h-6 text-[10px] px-2 py-0.5 bg-background border-border min-w-[125px] max-w-[170px]">
-                            <SelectValue placeholder="Default (first active)" />
+                            <SelectValue placeholder={t("defaultFirstActive")} />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="default" className="text-[10px]">Default (first active)</SelectItem>
+                            <SelectItem value="default" className="text-[10px]">{t("defaultFirstActive")}</SelectItem>
                             {imageModels.map((m) => (
                               <SelectItem key={m.id} value={String(m.id)} className="text-[10px]">
                                 {m.display_name || m.model_id}

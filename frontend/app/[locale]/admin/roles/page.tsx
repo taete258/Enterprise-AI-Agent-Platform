@@ -3,6 +3,7 @@ import { useEffect, useState, useMemo } from "react";
 import { admin } from "@/lib/api";
 import { PageHeader, Button, Input, Label, Card, CardContent, Badge, Alert, AlertDescription, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@taete258/ds";
 import { AlertCircle, Edit2, Trash2, Plus, Shield, Search, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 const RESOURCE_LABELS: Record<string, string> = {
   agent: "Agent",
@@ -53,6 +54,7 @@ const ACTION_ABBR: Record<string, string> = {
 };
 
 function PermissionsByCategory({ permissions }: { permissions: string[] }) {
+  const t = useTranslations("RolesPage");
   const permSet = new Set(permissions);
   const resources = Array.from(new Set(permissions.map((p) => p.split(":")[0])));
 
@@ -71,25 +73,30 @@ function PermissionsByCategory({ permissions }: { permissions: string[] }) {
           </tr>
         </thead>
         <tbody>
-          {resources.map((resource) => (
-            <tr key={resource} className="border-t border-border/40">
-              <td className="py-1 pr-2 font-semibold text-[9px] text-muted-foreground uppercase tracking-wider whitespace-nowrap">
-                {RESOURCE_LABELS[resource] || resource}
-              </td>
-              {ALL_ACTIONS.map((action) => {
-                const has = permSet.has(`${resource}:${action}`);
-                const colorClass = ACTION_COLORS[action] || "bg-gray-100 text-gray-700";
-                return (
-                  <td key={action} className="text-center py-0.5 px-0.5">
-                    {has
-                      ? <span className={`inline-flex items-center justify-center w-5 h-5 rounded text-[9px] font-bold ${colorClass}`}>✓</span>
-                      : <span className="inline-flex items-center justify-center w-5 h-5 text-border/40 text-[9px]">·</span>
-                    }
-                  </td>
-                );
-              })}
-            </tr>
-          ))}
+          {resources.map((resource) => {
+            const translationKey = `resource${resource.charAt(0).toUpperCase()}${resource.slice(1)}`;
+            const translated = t(translationKey);
+            const resourceLabel = translated.includes(".") ? (RESOURCE_LABELS[resource] || resource) : translated;
+            return (
+              <tr key={resource} className="border-t border-border/40">
+                <td className="py-1 pr-2 font-semibold text-[9px] text-muted-foreground uppercase tracking-wider whitespace-nowrap">
+                  {resourceLabel}
+                </td>
+                {ALL_ACTIONS.map((action) => {
+                  const has = permSet.has(`${resource}:${action}`);
+                  const colorClass = ACTION_COLORS[action] || "bg-gray-100 text-gray-700";
+                  return (
+                    <td key={action} className="text-center py-0.5 px-0.5">
+                      {has
+                        ? <span className={`inline-flex items-center justify-center w-5 h-5 rounded text-[9px] font-bold ${colorClass}`}>✓</span>
+                        : <span className="inline-flex items-center justify-center w-5 h-5 text-border/40 text-[9px]">·</span>
+                      }
+                    </td>
+                  );
+                })}
+              </tr>
+            );
+          })}
         </tbody>
       </table>
       <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5">
@@ -102,6 +109,7 @@ function PermissionsByCategory({ permissions }: { permissions: string[] }) {
 }
 
 export default function RolesPage() {
+  const t = useTranslations("RolesPage");
   const [roles, setRoles] = useState<any[]>([]);
   const [permsByResource, setPermsByResource] = useState<Record<string, string[]>>({});
   const [err, setErr] = useState("");
@@ -200,16 +208,19 @@ export default function RolesPage() {
       <div className="space-y-3 max-h-[360px] overflow-y-auto pr-1">
         {Object.entries(permsByResource).map(([resource, resPerm]) => {
           const allChecked = resPerm.every((p) => perms.includes(p));
+          const translationKey = `resource${resource.charAt(0).toUpperCase()}${resource.slice(1)}`;
+          const translated = t(translationKey);
+          const resourceLabel = translated.includes(".") ? (RESOURCE_LABELS[resource] || resource) : translated;
           return (
             <div key={resource} className="border rounded-lg p-3">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[12px] font-semibold text-foreground">{RESOURCE_LABELS[resource] || resource}</span>
+                <span className="text-[12px] font-semibold text-foreground">{resourceLabel}</span>
                 <button
                   type="button"
                   className="text-[10px] text-muted-foreground hover:text-primary"
                   onClick={() => toggleAll(resource, perms, onChange)}
                 >
-                  {allChecked ? "Deselect all" : "Select all"}
+                  {allChecked ? t("deselectAll") : t("selectAll")}
                 </button>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -231,7 +242,7 @@ export default function RolesPage() {
 
   return (
     <section>
-      <PageHeader title="Roles" subtitle="จัดการบทบาทและสิทธิ์การเข้าถึงระบบ" />
+      <PageHeader title={t("title")} subtitle={t("subtitle")} />
       <div className="px-6 pb-10 max-w-5xl mx-auto">
         {err && (
           <Alert variant="destructive" className="mb-4">
@@ -243,7 +254,7 @@ export default function RolesPage() {
           <div className="relative flex-1">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
             <Input
-              placeholder="ค้นหาชื่อ Role หรือคำอธิบาย…"
+              placeholder={t("searchPlaceholder")}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-8 h-9 text-[13px]"
@@ -255,27 +266,32 @@ export default function RolesPage() {
             )}
           </div>
           <Button onClick={() => setShowCreate(true)} className="h-9 whitespace-nowrap">
-            <Plus className="size-4 mr-1" /> สร้าง Role
+            <Plus className="size-4 mr-1" /> {t("createRole")}
           </Button>
         </div>
         <div className="flex gap-2 mb-4">
           <Select value={filterResource || "__all__"} onValueChange={(v) => setFilterResource(v === "__all__" ? "" : v)}>
             <SelectTrigger className="h-8 flex-1 text-[12px]">
-              <SelectValue placeholder="ทุก Resource" />
+              <SelectValue placeholder={t("allResources")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="__all__">ทุก Resource</SelectItem>
-              {ALL_RESOURCES.map((r) => (
-                <SelectItem key={r} value={r}>{RESOURCE_LABELS[r] || r}</SelectItem>
-              ))}
+              <SelectItem value="__all__">{t("allResources")}</SelectItem>
+              {ALL_RESOURCES.map((r) => {
+                const translationKey = `resource${r.charAt(0).toUpperCase()}${r.slice(1)}`;
+                const translated = t(translationKey);
+                const resourceLabel = translated.includes(".") ? (RESOURCE_LABELS[r] || r) : translated;
+                return (
+                  <SelectItem key={r} value={r}>{resourceLabel}</SelectItem>
+                );
+              })}
             </SelectContent>
           </Select>
           <Select value={filterAction || "__all__"} onValueChange={(v) => setFilterAction(v === "__all__" ? "" : v)}>
             <SelectTrigger className="h-8 flex-1 text-[12px]">
-              <SelectValue placeholder="ทุก Action" />
+              <SelectValue placeholder={t("allActions")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="__all__">ทุก Action</SelectItem>
+              <SelectItem value="__all__">{t("allActions")}</SelectItem>
               {["view", "use", "create", "edit", "delete", "admin"].map((a) => (
                 <SelectItem key={a} value={a}>{a}</SelectItem>
               ))}
@@ -285,22 +301,20 @@ export default function RolesPage() {
 
         {(search || filterResource || filterAction) && (
           <div className="flex items-center gap-2 mb-3 text-[12px] text-muted-foreground">
-            <span>แสดง {filteredRoles.length} จาก {roles.length} roles</span>
-            {(search || filterResource || filterAction) && (
-              <button
-                onClick={() => { setSearch(""); setFilterResource(""); setFilterAction(""); }}
-                className="flex items-center gap-0.5 text-primary hover:underline"
-              >
-                <X className="size-3" /> ล้าง filter
-              </button>
-            )}
+            <span>{t("showingCount", { count: filteredRoles.length, total: roles.length })}</span>
+            <button
+              onClick={() => { setSearch(""); setFilterResource(""); setFilterAction(""); }}
+              className="flex items-center gap-0.5 text-primary hover:underline"
+            >
+              <X className="size-3" /> {t("clearFilter")}
+            </button>
           </div>
         )}
 
         <div className="grid gap-4">
           {filteredRoles.length === 0 && (
             <div className="text-center py-12 text-muted-foreground text-[13px]">
-              {roles.length === 0 ? "ยังไม่มี Role — กด สร้าง Role เพื่อเริ่มต้น" : "ไม่พบ Role ที่ตรงกับเงื่อนไขการค้นหา"}
+              {roles.length === 0 ? t("noRoles") : t("noRolesMatch")}
             </div>
           )}
           {filteredRoles.map((role) => (
@@ -326,7 +340,7 @@ export default function RolesPage() {
                   </div>
                 </div>
                 {role.permissions.length === 0 ? (
-                  <span className="text-[11px] text-muted-foreground">No permissions</span>
+                  <span className="text-[11px] text-muted-foreground">{t("noPermissions")}</span>
                 ) : (
                   <PermissionsByCategory permissions={role.permissions} />
                 )}
@@ -338,23 +352,23 @@ export default function RolesPage() {
         {/* Create Modal */}
         <Dialog open={showCreate} onOpenChange={(o) => { if (!o) { setShowCreate(false); setForm({ name: "", description: "", permissions: [] }); } }}>
           <DialogContent className="max-w-lg">
-            <DialogHeader><DialogTitle>สร้าง Role ใหม่</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle>{t("createTitle")}</DialogTitle></DialogHeader>
             <form onSubmit={handleCreate} className="space-y-4">
               <div className="space-y-1.5">
-                <Label>ชื่อ Role</Label>
-                <Input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="เช่น editor" />
+                <Label>{t("roleName")}</Label>
+                <Input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder={t("roleNamePlaceholder")} />
               </div>
               <div className="space-y-1.5">
-                <Label>คำอธิบาย</Label>
-                <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="อธิบาย role นี้…" />
+                <Label>{t("description")}</Label>
+                <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder={t("descPlaceholder")} />
               </div>
               <div className="space-y-1.5">
-                <Label>Permissions ({form.permissions.length} เลือกไว้)</Label>
+                <Label>{t("permissionsSelected", { count: form.permissions.length })}</Label>
                 <PermissionGrid perms={form.permissions} onChange={(p) => setForm({ ...form, permissions: p })} />
               </div>
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setShowCreate(false)}>ยกเลิก</Button>
-                <Button type="submit">สร้าง</Button>
+                <Button type="button" variant="outline" onClick={() => setShowCreate(false)}>{t("cancel")}</Button>
+                <Button type="submit">{t("create")}</Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -363,27 +377,27 @@ export default function RolesPage() {
         {/* Edit Modal */}
         <Dialog open={!!editingRole} onOpenChange={(o) => { if (!o) setEditingRole(null); }}>
           <DialogContent className="max-w-lg">
-            <DialogHeader><DialogTitle>แก้ไข Role: {editingRole?.name}</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle>{t("editTitle", { name: editingRole?.name })}</DialogTitle></DialogHeader>
             {editingRole && (
               <form onSubmit={handleEdit} className="space-y-4">
                 <div className="space-y-1.5">
-                  <Label>คำอธิบาย</Label>
+                  <Label>{t("description")}</Label>
                   <Input
                     value={editingRole.description}
                     onChange={(e) => setEditingRole({ ...editingRole, description: e.target.value })}
-                    placeholder="อธิบาย role นี้…"
+                    placeholder={t("descPlaceholder")}
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Permissions ({editingRole.permissions.length} เลือกไว้)</Label>
+                  <Label>{t("permissionsSelected", { count: editingRole.permissions.length })}</Label>
                   <PermissionGrid
                     perms={editingRole.permissions}
                     onChange={(p) => setEditingRole({ ...editingRole, permissions: p })}
                   />
                 </div>
                 <DialogFooter>
-                  <Button type="button" variant="outline" onClick={() => setEditingRole(null)}>ยกเลิก</Button>
-                  <Button type="submit">บันทึก</Button>
+                  <Button type="button" variant="outline" onClick={() => setEditingRole(null)}>{t("cancel")}</Button>
+                  <Button type="submit">{t("save")}</Button>
                 </DialogFooter>
               </form>
             )}
@@ -393,13 +407,13 @@ export default function RolesPage() {
         {/* Delete Modal */}
         <Dialog open={!!deleteTarget} onOpenChange={(o) => { if (!o) setDeleteTarget(null); }}>
           <DialogContent>
-            <DialogHeader><DialogTitle>ลบ Role</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle>{t("deleteTitle")}</DialogTitle></DialogHeader>
             <p className="text-sm text-muted-foreground">
-              คุณแน่ใจหรือว่าต้องการลบ <strong>{deleteTarget?.name}</strong>? Users ที่มี role นี้จะสูญเสียสิทธิ์ที่เกี่ยวข้อง
+              {t("deleteConfirm", { name: deleteTarget?.name })}
             </p>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setDeleteTarget(null)}>ยกเลิก</Button>
-              <Button variant="destructive" onClick={handleDelete}>ลบ</Button>
+              <Button variant="outline" onClick={() => setDeleteTarget(null)}>{t("cancel")}</Button>
+              <Button variant="destructive" onClick={handleDelete}>{t("delete")}</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

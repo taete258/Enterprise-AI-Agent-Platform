@@ -129,7 +129,7 @@ function AgentCard({ agent, onDelete }: { agent: any; onDelete: (id: number) => 
                   in: ${agent.input_cost_per_1k.toFixed(4)}/1k · out: ${agent.output_cost_per_1k.toFixed(4)}/1k
                 </>
               ) : (
-                <span className="text-muted-foreground/50">No cost info</span>
+                <span className="text-muted-foreground/50">{t("noCostInfo")}</span>
               )}
             </span>
           </div>
