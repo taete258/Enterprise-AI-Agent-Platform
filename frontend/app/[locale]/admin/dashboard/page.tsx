@@ -287,8 +287,8 @@ function CostTrendChart({ daily }: { daily: any[] }) {
           <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full overflow-visible">
             <defs>
               <linearGradient id="costGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.3" />
-                <stop offset="100%" stopColor="var(--primary)" stopOpacity="0.0" />
+                <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.3" />
+                <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0.0" />
               </linearGradient>
             </defs>
 
@@ -298,13 +298,13 @@ function CostTrendChart({ daily }: { daily: any[] }) {
               return (
                 <g key={i} className="opacity-40">
                   <line
-                    x1={paddingLeft}
-                    y1={y}
-                    x2={width - paddingRight}
-                    y2={y}
-                    stroke="var(--border)"
-                    strokeWidth={1}
-                    strokeDasharray="3,3"
+                     x1={paddingLeft}
+                     y1={y}
+                     x2={width - paddingRight}
+                     y2={y}
+                     stroke="hsl(var(--border))"
+                     strokeWidth={1}
+                     strokeDasharray="3,3"
                   />
                   <text
                     x={paddingLeft - 8}
@@ -339,7 +339,7 @@ function CostTrendChart({ daily }: { daily: any[] }) {
               <path
                 d={linePath}
                 fill="none"
-                stroke="var(--primary)"
+                stroke="hsl(var(--primary))"
                 strokeWidth={2}
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -366,7 +366,7 @@ function CostTrendChart({ daily }: { daily: any[] }) {
                 y1={paddingTop}
                 x2={points[hoveredIdx].x}
                 y2={paddingTop + chartHeight}
-                stroke="var(--primary)"
+                stroke="hsl(var(--primary))"
                 strokeWidth={1}
                 strokeDasharray="4,4"
                 className="opacity-60"
@@ -476,12 +476,12 @@ function TokenTrendChart({ daily }: { daily: any[] }) {
           <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full overflow-visible">
             <defs>
               <linearGradient id="inputGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.25" />
-                <stop offset="100%" stopColor="var(--primary)" stopOpacity="0.0" />
+                <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.25" />
+                <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0.0" />
               </linearGradient>
               <linearGradient id="outputGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="var(--secondary)" stopOpacity="0.25" />
-                <stop offset="100%" stopColor="var(--secondary)" stopOpacity="0.0" />
+                <stop offset="0%" stopColor="hsl(var(--secondary))" stopOpacity="0.25" />
+                <stop offset="100%" stopColor="hsl(var(--secondary))" stopOpacity="0.0" />
               </linearGradient>
             </defs>
 
@@ -495,7 +495,7 @@ function TokenTrendChart({ daily }: { daily: any[] }) {
                     y1={y}
                     x2={width - paddingRight}
                     y2={y}
-                    stroke="var(--border)"
+                    stroke="hsl(var(--border))"
                     strokeWidth={1}
                     strokeDasharray="3,3"
                   />
@@ -533,7 +533,7 @@ function TokenTrendChart({ daily }: { daily: any[] }) {
               <path
                 d={inputLinePath}
                 fill="none"
-                stroke="var(--primary)"
+                stroke="hsl(var(--primary))"
                 strokeWidth={2}
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -543,7 +543,7 @@ function TokenTrendChart({ daily }: { daily: any[] }) {
               <path
                 d={outputLinePath}
                 fill="none"
-                stroke="var(--secondary)"
+                stroke="hsl(var(--secondary))"
                 strokeWidth={2}
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -584,7 +584,7 @@ function TokenTrendChart({ daily }: { daily: any[] }) {
                 y1={paddingTop}
                 x2={inputPoints[hoveredIdx].x}
                 y2={paddingTop + chartHeight}
-                stroke="var(--border)"
+                stroke="hsl(var(--border))"
                 strokeWidth={1}
                 strokeDasharray="4,4"
                 className="opacity-80"
