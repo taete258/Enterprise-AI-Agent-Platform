@@ -3,12 +3,8 @@ import { useState, useEffect } from "react";
 import { useRouter } from "@/i18n/routing";
 import { useLocale, useTranslations } from "next-intl";
 import { auth } from "@/lib/api";
-import Logo from "@/components/Logo";
+import { Logo, Button, Input, Label, Alert, AlertDescription } from "@taete258/ds";
 import LocaleSwitcher from "@/components/LocaleSwitcher";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, Eye, EyeOff, ArrowRight } from "lucide-react";
 
 export default function LoginPage() {

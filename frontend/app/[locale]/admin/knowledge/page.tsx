@@ -1,13 +1,8 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { knowledge } from "@/lib/api";
-import PageHeader from "@/components/PageHeader";
+import { PageHeader, Button, Input, Label, Card, CardContent, Alert, AlertDescription } from "@taete258/ds";
 import GraphVisualizer from "@/components/GraphVisualizer";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent } from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Dialog,
   DialogContent,
@@ -15,7 +10,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
+} from "@taete258/ds";
 import { AlertCircle, Upload, FileText, X, Table, FileType, Trash2 } from "lucide-react";
 
 const STRUCTURED_EXTS = [".csv", ".tsv", ".xlsx", ".xls", ".json", ".jsonl", ".parquet"];

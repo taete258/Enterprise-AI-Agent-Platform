@@ -49,7 +49,10 @@ services:
       - docstorage:/app/storage
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      secrets:
+        - github_token
     environment:
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
     ports:
@@ -64,3 +67,7 @@ volumes:
   pgdata:
   docstorage:
   miniodata:
+
+secrets:
+  github_token:
+    environment: GITHUB_TOKEN

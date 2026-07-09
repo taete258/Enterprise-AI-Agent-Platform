@@ -3,9 +3,7 @@ import { useEffect, useState } from "react";
 import { Link } from "@/i18n/routing";
 import { useTranslations } from "next-intl";
 import { ShieldAlert, ArrowRight, Home } from "lucide-react";
-import Logo from "@/components/Logo";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import { Logo, Button, Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@taete258/ds";
 
 export default function UnauthorizedPage() {
   const t = useTranslations("UnauthorizedPage");

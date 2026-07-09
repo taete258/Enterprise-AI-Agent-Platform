@@ -1,12 +1,9 @@
 "use client";
 import { useEffect, useState } from "react";
 import { admin } from "@/lib/api";
-import PageHeader from "@/components/PageHeader";
-import { Card, CardContent } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { PageHeader, Card, CardContent, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Input } from "@taete258/ds";
 import { useTranslations } from "next-intl";
 import { Search, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
-import { Input } from "@/components/ui/input";
 
 export default function DashboardPage() {
   const t = useTranslations("DashboardPage");

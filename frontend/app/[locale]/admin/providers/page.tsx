@@ -1,15 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { llm } from "@/lib/api";
-import PageHeader from "@/components/PageHeader";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Separator } from "@/components/ui/separator";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { PageHeader, Button, Input, Label, Card, CardContent, Badge, Alert, AlertDescription, Separator, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@taete258/ds";
 import { Check, X, AlertCircle, Plug, Loader2, Pencil } from "lucide-react";
 import { useTranslations } from "next-intl";
 

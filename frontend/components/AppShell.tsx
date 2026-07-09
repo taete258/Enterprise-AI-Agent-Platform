@@ -5,11 +5,8 @@ import { useLocale, useTranslations } from "next-intl";
 import {
   Bot, MessagesSquare, BookOpen, Cpu, Plug, Users, BarChart3, ScrollText, LogOut, Wrench, Shield,
 } from "lucide-react";
-import Logo from "./Logo";
+import { Logo, ThemeToggle, Avatar, AvatarFallback, Separator } from "@taete258/ds";
 import LocaleSwitcher from "./LocaleSwitcher";
-import ThemeToggle from "./ThemeToggle";
-import { Avatar, AvatarFallback } from "./ui/avatar";
-import { Separator } from "./ui/separator";
 import { isTokenValid, auth } from "@/lib/api";
 
 interface NavItem {

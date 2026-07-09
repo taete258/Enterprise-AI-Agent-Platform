@@ -3,11 +3,8 @@ import { Link, usePathname, useRouter } from "@/i18n/routing";
 import { useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { LogOut } from "lucide-react";
-import Logo from "./Logo";
+import { Logo, ThemeToggle, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Button } from "@taete258/ds";
 import LocaleSwitcher from "./LocaleSwitcher";
-import ThemeToggle from "./ThemeToggle";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 
 export default function AppHeader() {
   const router = useRouter();

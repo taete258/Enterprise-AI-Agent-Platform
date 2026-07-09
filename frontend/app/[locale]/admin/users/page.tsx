@@ -1,15 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { admin } from "@/lib/api";
-import PageHeader from "@/components/PageHeader";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { PageHeader, Button, Input, Label, Card, CardContent, Badge, Alert, AlertDescription, Avatar, AvatarFallback, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@taete258/ds";
 import { AlertCircle, Edit2, Trash2, Shield } from "lucide-react";
 import { useTranslations } from "next-intl";
 

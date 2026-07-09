@@ -1,11 +1,7 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
 import { admin, api, API_URL } from "@/lib/api";
-import PageHeader from "@/components/PageHeader";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { PageHeader, Card, Badge, Input, Button } from "@taete258/ds";
 import { useTranslations } from "next-intl";
 import { useLocale } from "next-intl";
 

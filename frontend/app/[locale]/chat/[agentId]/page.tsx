@@ -6,14 +6,8 @@ import { useTranslations } from "next-intl";
 import { agents, sessions, llm, auth, admin } from "@/lib/api";
 import { API_URL } from "@/lib/api";
 import AppShell from "@/components/AppShell";
-import Topbar from "@/components/Topbar";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
+import { Topbar, Card, Badge, Button, Separator, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@taete258/ds";
 import { Send, Settings, BookOpen, ChevronRight, Paperclip, X, FileText, ChevronLeft, Pin, Edit2, Trash2, MoreVertical, Link2Off, Loader2, ArrowDown, Plus } from "lucide-react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 
 type Attachment = { name: string; size?: number; mime?: string; localUrl?: string };
 
