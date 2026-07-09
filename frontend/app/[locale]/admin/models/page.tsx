@@ -254,7 +254,7 @@ export default function ModelsPage() {
                         <button
                           type="button"
                           onClick={() => setDeleteTarget({ id: m.id, name: m.display_name || m.model_id })}
-                          className="p-1.5 text-muted-foreground hover:text-destructive rounded-md hover:bg-accent transition-colors cursor-pointer"
+                          className="p-1.5 text-destructive hover:bg-destructive/10 rounded-md transition-colors cursor-pointer"
                           title={t("confirmDelete")}
                         >
                           <Trash2 className="size-3.5" />

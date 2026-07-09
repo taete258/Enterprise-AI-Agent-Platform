@@ -275,7 +275,7 @@ export default function ToolsPage() {
                         <Edit2 className="size-3.5" />
                       </Button>
                       {!tool.is_system && (
-                        <Button size="icon" variant="ghost" onClick={() => setDeleteTarget(tool)} title="Delete Tool" className="size-8 text-muted-foreground hover:text-destructive cursor-pointer">
+                        <Button size="icon" variant="ghost" onClick={() => setDeleteTarget(tool)} title="Delete Tool" className="size-8 text-destructive hover:bg-destructive/10 cursor-pointer">
                           <Trash2 className="size-3.5" />
                         </Button>
                       )}
