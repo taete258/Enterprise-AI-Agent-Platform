@@ -127,7 +127,7 @@ export default function ModelsPage() {
                   <Label>{t("modelId")}</Label>
                   {form.provider_id > 0 && (
                     <button type="button" onClick={() => setManual((m) => !m)}
-                            className="text-[10.5px] text-primary hover:underline">
+                      className="text-[10.5px] text-primary hover:underline">
                       {manual ? t("selectFromList") : t("typeManually")}
                     </button>
                   )}
@@ -153,7 +153,7 @@ export default function ModelsPage() {
                   />
                 ) : (
                   <Input className="font-mono" placeholder="gpt-4o-mini" required
-                         value={form.model_id} onChange={(e) => setForm({ ...form, model_id: e.target.value })} />
+                    value={form.model_id} onChange={(e) => setForm({ ...form, model_id: e.target.value })} />
                 )}
                 {availErr && <p className="text-[10.5px] text-destructive">⚠ {availErr}</p>}
               </div>
@@ -161,24 +161,24 @@ export default function ModelsPage() {
               <div className="sm:col-span-2 space-y-1.5">
                 <Label>{t("displayName")}</Label>
                 <Input placeholder="GPT-4o Mini" value={form.display_name}
-                       onChange={(e) => setForm({ ...form, display_name: e.target.value })} />
+                  onChange={(e) => setForm({ ...form, display_name: e.target.value })} />
               </div>
 
               <div className="space-y-1.5">
                 <Label>{t("contextWindow")}</Label>
                 <Input type="number" value={form.context_window}
-                       onChange={(e) => setForm({ ...form, context_window: Number(e.target.value) })} />
+                  onChange={(e) => setForm({ ...form, context_window: Number(e.target.value) })} />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label>{t("inputCost")}</Label>
                   <Input type="number" step="0.0001" value={form.input_cost_per_1k}
-                         onChange={(e) => setForm({ ...form, input_cost_per_1k: Number(e.target.value) })} />
+                    onChange={(e) => setForm({ ...form, input_cost_per_1k: Number(e.target.value) })} />
                 </div>
                 <div className="space-y-1.5">
                   <Label>{t("outputCost")}</Label>
                   <Input type="number" step="0.0001" value={form.output_cost_per_1k}
-                         onChange={(e) => setForm({ ...form, output_cost_per_1k: Number(e.target.value) })} />
+                    onChange={(e) => setForm({ ...form, output_cost_per_1k: Number(e.target.value) })} />
                 </div>
               </div>
 
@@ -284,25 +284,25 @@ export default function ModelsPage() {
             <div className="space-y-1.5">
               <Label>{t("displayName")}</Label>
               <Input placeholder="GPT-4o Mini" value={editForm.display_name}
-                     onChange={(e) => setEditForm({ ...editForm, display_name: e.target.value })} />
+                onChange={(e) => setEditForm({ ...editForm, display_name: e.target.value })} />
             </div>
 
             <div className="space-y-1.5">
               <Label>{t("contextWindow")}</Label>
               <Input type="number" value={editForm.context_window}
-                     onChange={(e) => setEditForm({ ...editForm, context_window: Number(e.target.value) })} />
+                onChange={(e) => setEditForm({ ...editForm, context_window: Number(e.target.value) })} />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>{t("inputCost")}</Label>
                 <Input type="number" step="0.0001" value={editForm.input_cost_per_1k}
-                       onChange={(e) => setEditForm({ ...editForm, input_cost_per_1k: Number(e.target.value) })} />
+                  onChange={(e) => setEditForm({ ...editForm, input_cost_per_1k: Number(e.target.value) })} />
               </div>
               <div className="space-y-1.5">
                 <Label>{t("outputCost")}</Label>
                 <Input type="number" step="0.0001" value={editForm.output_cost_per_1k}
-                       onChange={(e) => setEditForm({ ...editForm, output_cost_per_1k: Number(e.target.value) })} />
+                  onChange={(e) => setEditForm({ ...editForm, output_cost_per_1k: Number(e.target.value) })} />
               </div>
             </div>
 
