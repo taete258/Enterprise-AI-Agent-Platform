@@ -1,12 +1,9 @@
 "use client";
 import { useEffect, useState } from "react";
 import { admin } from "@/lib/api";
-import PageHeader from "@/components/PageHeader";
-import { Card, CardContent } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { PageHeader, Card, CardContent, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Input } from "@taete258/ds";
 import { useTranslations } from "next-intl";
 import { Search, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
-import { Input } from "@/components/ui/input";
 
 export default function DashboardPage() {
   const t = useTranslations("DashboardPage");
@@ -627,12 +624,12 @@ function TokenTrendChart({ daily }: { daily: any[] }) {
                 <div className="font-semibold mb-1 text-foreground">{formatDateTooltip(d.day)}</div>
                 <div className="flex items-center gap-2.5">
                   <div className="h-2 w-2 rounded-full bg-primary" />
-                  <span className="text-muted-foreground">In:</span>
+                  <span className="text-muted-foreground">{t("in")}</span>
                   <span className="font-mono font-semibold text-foreground">{d.tokens_in.toLocaleString()}</span>
                 </div>
                 <div className="flex items-center gap-2.5 mt-0.5">
                   <div className="h-2 w-2 rounded-full bg-secondary" />
-                  <span className="text-muted-foreground">Out:</span>
+                  <span className="text-muted-foreground">{t("out")}</span>
                   <span className="font-mono font-semibold text-foreground">{d.tokens_out.toLocaleString()}</span>
                 </div>
               </div>

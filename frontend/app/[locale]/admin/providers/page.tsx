@@ -1,16 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
 import { llm } from "@/lib/api";
-import PageHeader from "@/components/PageHeader";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Separator } from "@/components/ui/separator";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Check, X, AlertCircle, Plug, Loader2, Pencil } from "lucide-react";
+import { PageHeader, Button, Input, Label, Card, CardContent, Badge, Alert, AlertDescription, Separator, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@taete258/ds";
+import { Check, X, AlertCircle, Plug, Loader2, Pencil, Play, Trash2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 const KINDS = [
@@ -199,16 +191,16 @@ export default function ProvidersPage() {
                               <div className="text-[10.5px] text-muted-foreground font-mono truncate">{p.base_url || t("defaultEndpoint")}</div>
                             </div>
                           </div>
-                          <div className="flex gap-2 shrink-0">
-                            <Button size="sm" variant="ghost" onClick={() => runTest(p.id)} disabled={testState.status === "testing"}>
-                              {testState.status === "testing" && <Loader2 className="size-3.5 animate-spin" />} {t("test")}
+                          <div className="flex gap-1.5 shrink-0 items-center">
+                            <Button size="icon" variant="ghost" onClick={() => runTest(p.id)} disabled={testState.status === "testing"} title={t("test")} className="size-8 text-primary hover:text-primary-hover hover:bg-primary/10 cursor-pointer">
+                              {testState.status === "testing" ? <Loader2 className="size-3.5 animate-spin" /> : <Play className="size-3.5 fill-current" />}
                             </Button>
-                            <Button size="sm" variant="outline" onClick={() => startEdit(p)}>
-                              <Pencil className="size-3.5" /> {t("edit")}
+                            <Button size="icon" variant="ghost" onClick={() => startEdit(p)} title={t("edit")} className="size-8 text-muted-foreground hover:text-foreground cursor-pointer">
+                              <Pencil className="size-3.5" />
                             </Button>
-                            <Button size="sm" variant="ghost"
-                                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                                    onClick={() => del(p.id)}>{t("delete")}</Button>
+                            <Button size="icon" variant="ghost" onClick={() => del(p.id)} title={t("delete")} className="size-8 text-destructive hover:bg-destructive/10 cursor-pointer">
+                              <Trash2 className="size-3.5" />
+                            </Button>
                           </div>
                         </div>
                         {testState.msg && (
@@ -236,7 +228,7 @@ export default function ProvidersPage() {
                             {t("active")}
                           </label>
                           <div className="sm:col-span-2 space-y-1.5">
-                            <Label>Base URL</Label>
+                            <Label>{t("baseUrlLabel")}</Label>
                             <Input placeholder="https://api.openai.com/v1" value={editForm.base_url}
                                    onChange={(e) => setEditForm({ ...editForm, base_url: e.target.value })} />
                           </div>

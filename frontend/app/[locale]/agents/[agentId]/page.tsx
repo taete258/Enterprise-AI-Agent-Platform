@@ -4,14 +4,9 @@ import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { agents, knowledge } from "@/lib/api";
 import AppShell from "@/components/AppShell";
-import Topbar from "@/components/Topbar";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
+import { Topbar, Button, Card, CardContent, Alert, AlertDescription, Badge, Label } from "@taete258/ds";
 import { Link } from "@/i18n/routing";
 import { AlertCircle, FileText, MessageSquare, Settings, BookOpen, Table, FileType, Edit } from "lucide-react";
-import { Label } from "@radix-ui/react-label";
 
 function DetailRow({ k, v }: { k: string; v: string }) {
   return (

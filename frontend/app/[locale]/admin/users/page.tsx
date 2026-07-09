@@ -1,15 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { admin } from "@/lib/api";
-import PageHeader from "@/components/PageHeader";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { PageHeader, Button, Input, Label, Card, CardContent, Badge, Alert, AlertDescription, Avatar, AvatarFallback, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@taete258/ds";
 import { AlertCircle, Edit2, Trash2, Shield } from "lucide-react";
 import { useTranslations } from "next-intl";
 
@@ -121,7 +113,7 @@ export default function UsersPage() {
           <table className="w-full text-[13px]">
             <thead>
               <tr className="bg-muted border-b border-border">
-                {[t("id"), t("email"), t("fullName"), "Roles", t("status"), t("actions")].map((h) => (
+                {[t("id"), t("email"), t("fullName"), t("roles"), t("status"), t("actions")].map((h) => (
                   <th key={h} className="text-left px-3 py-2.5 text-[10.5px] font-semibold uppercase tracking-wider text-muted-foreground">{h}</th>
                 ))}
               </tr>
@@ -149,8 +141,8 @@ export default function UsersPage() {
                     </div>
                   </td>
                   <td className="px-3 py-2.5 space-x-1">
-                    {u.is_superuser && <Badge variant="default">Superuser</Badge>}
-                    <Badge variant={u.is_active ? "success" : "muted"}>{u.is_active ? "active" : "inactive"}</Badge>
+                    {u.is_superuser && <Badge variant="default">{t("superuser")}</Badge>}
+                    <Badge variant={u.is_active ? "success" : "muted"}>{u.is_active ? t("active") : t("inactive")}</Badge>
                   </td>
                   <td className="px-3 py-2.5 space-x-1 flex items-center">
                     <Button size="sm" variant="ghost" onClick={() => openRoles(u)} title="Assign Roles">
@@ -205,8 +197,8 @@ export default function UsersPage() {
         <Dialog open={!!rolesTarget} onOpenChange={(open) => !open && setRolesTarget(null)}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>จัดการ Roles: {rolesTarget?.email}</DialogTitle>
-              <DialogDescription>เลือก roles ที่ต้องการกำหนดให้ผู้ใช้คนนี้</DialogDescription>
+              <DialogTitle>{t("manageRoles", { email: rolesTarget?.email })}</DialogTitle>
+              <DialogDescription>{t("selectRolesDesc")}</DialogDescription>
             </DialogHeader>
             <div className="space-y-2 py-2">
               {allRoles.map((role) => (
@@ -228,17 +220,17 @@ export default function UsersPage() {
                     {role.description && (
                       <div className="text-[11px] text-muted-foreground">{role.description}</div>
                     )}
-                    <div className="text-[10px] text-muted-foreground mt-0.5">{role.permissions.length} permissions</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5">{t("permissionsCount", { count: role.permissions.length })}</div>
                   </div>
                 </label>
               ))}
               {allRoles.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-4">ยังไม่มี roles — ไปสร้างที่หน้า Roles ก่อน</p>
+                <p className="text-sm text-muted-foreground text-center py-4">{t("noRolesAvailable")}</p>
               )}
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setRolesTarget(null)}>{t("cancel")}</Button>
-              <Button onClick={saveRoles}>บันทึก</Button>
+              <Button onClick={saveRoles}>{t("save")}</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

@@ -3,7 +3,8 @@ import { NextIntlClientProvider } from "next-intl";
 import { getMessages, setRequestLocale } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { routing } from "@/i18n/routing";
-import { ThemeProvider } from "@/components/ThemeProvider";
+import { ThemeProvider } from "@taete258/ds";
+import AutofillDisabler from "../../components/AutofillDisabler";
 
 export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }));
@@ -55,6 +56,7 @@ export default async function LocaleLayout({
       <body className="font-sans">
         <NextIntlClientProvider messages={messages}>
           <ThemeProvider>
+            <AutofillDisabler />
             {children}
           </ThemeProvider>
         </NextIntlClientProvider>

@@ -1,15 +1,8 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
 import { admin } from "@/lib/api";
-import PageHeader from "@/components/PageHeader";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { PageHeader, Button, Input, Label, Card, CardContent, Badge, Alert, AlertDescription, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@taete258/ds";
 import { AlertCircle, Trash2, Edit2, Play, Plus, BookOpen, Settings } from "lucide-react";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useTranslations } from "next-intl";
 
 const SCHEMA_TEMPLATES = {
@@ -205,9 +198,9 @@ export default function ToolsPage() {
                 }}
                 className="text-[13px] px-3 py-2 rounded-md border border-input bg-background h-9"
               >
-                <option value="">All Types</option>
-                <option value="api">API</option>
-                <option value="system">System</option>
+                <option value="">{t("allTypes")}</option>
+                <option value="api">{t("api")}</option>
+                <option value="system">{t("system")}</option>
               </select>
             </div>
 
@@ -266,10 +259,10 @@ export default function ToolsPage() {
                   <td className="px-4 py-4 text-[12px]">
                     <div className="space-y-0.5">
                       <div className="text-muted-foreground">
-                        <span className="font-medium">In:</span> ${(tool.cost_per_1m_input_tokens || 0).toFixed(4)}
+                        <span className="font-medium">{t("in")}</span> ${(tool.cost_per_1m_input_tokens || 0).toFixed(4)}
                       </div>
                       <div className="text-muted-foreground">
-                        <span className="font-medium">Out:</span> ${(tool.cost_per_1m_output_tokens || 0).toFixed(4)}
+                        <span className="font-medium">{t("out")}</span> ${(tool.cost_per_1m_output_tokens || 0).toFixed(4)}
                       </div>
                     </div>
                   </td>
@@ -282,7 +275,7 @@ export default function ToolsPage() {
                         <Edit2 className="size-3.5" />
                       </Button>
                       {!tool.is_system && (
-                        <Button size="icon" variant="ghost" onClick={() => setDeleteTarget(tool)} title="Delete Tool" className="size-8 text-muted-foreground hover:text-destructive cursor-pointer">
+                        <Button size="icon" variant="ghost" onClick={() => setDeleteTarget(tool)} title="Delete Tool" className="size-8 text-destructive hover:bg-destructive/10 cursor-pointer">
                           <Trash2 className="size-3.5" />
                         </Button>
                       )}
@@ -410,7 +403,7 @@ export default function ToolsPage() {
               </div>
 
               <div className="space-y-1.5 col-span-2">
-                <Label>Model Capabilities</Label>
+                <Label>{t("modelCapabilities")}</Label>
                 <div className="flex gap-3 flex-wrap p-3 rounded-md border border-input bg-transparent">
                   {["text", "image", "audio", "video"].map((cap) => (
                     <label key={cap} className="flex items-center gap-2 cursor-pointer">
@@ -436,7 +429,7 @@ export default function ToolsPage() {
 
               <div className="grid grid-cols-2 gap-4 col-span-2">
                 <div className="space-y-1.5">
-                  <Label htmlFor="input-cost">Cost per 1M Input Tokens ($)</Label>
+                  <Label htmlFor="input-cost">{t("costInputMillion")}</Label>
                   <Input
                     id="input-cost"
                     type="number"
@@ -447,7 +440,7 @@ export default function ToolsPage() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="output-cost">Cost per 1M Output Tokens ($)</Label>
+                  <Label htmlFor="output-cost">{t("costOutputMillion")}</Label>
                   <Input
                     id="output-cost"
                     type="number"

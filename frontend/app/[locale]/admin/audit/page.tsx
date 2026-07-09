@@ -1,11 +1,7 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
 import { admin, api, API_URL } from "@/lib/api";
-import PageHeader from "@/components/PageHeader";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { PageHeader, Card, Badge, Input, Button } from "@taete258/ds";
 import { useTranslations } from "next-intl";
 import { useLocale } from "next-intl";
 
@@ -129,7 +125,7 @@ export default function AuditPage() {
                 }}
                 className="text-[13px] px-3 py-2 rounded-md border border-input bg-background h-9"
               >
-                <option value="">All Actions</option>
+                <option value="">{t("allActions")}</option>
                 {actions.map((a) => (
                   <option key={a} value={a}>{a}</option>
                 ))}
@@ -143,7 +139,7 @@ export default function AuditPage() {
                 }}
                 className="text-[13px] px-3 py-2 rounded-md border border-input bg-background h-9"
               >
-                <option value="">All Resources</option>
+                <option value="">{t("allResources")}</option>
                 {resourceTypes.map((r) => (
                   <option key={r} value={r}>{r}</option>
                 ))}

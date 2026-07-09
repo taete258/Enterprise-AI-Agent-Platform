@@ -1,17 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
 import { llm } from "@/lib/api";
-import PageHeader from "@/components/PageHeader";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { SearchableSelect } from "@/components/ui/searchable-select";
+import { PageHeader, Button, Input, Label, Card, CardContent, Badge, Alert, AlertDescription, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SearchableSelect, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@taete258/ds";
 import { AlertCircle, Eye, Trash2, Image, Edit2 } from "lucide-react";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useTranslations } from "next-intl";
 import { detectCapabilities } from "@/lib/modelCapabilities";
 
@@ -136,7 +127,7 @@ export default function ModelsPage() {
                   <Label>{t("modelId")}</Label>
                   {form.provider_id > 0 && (
                     <button type="button" onClick={() => setManual((m) => !m)}
-                            className="text-[10.5px] text-primary hover:underline">
+                      className="text-[10.5px] text-primary hover:underline">
                       {manual ? t("selectFromList") : t("typeManually")}
                     </button>
                   )}
@@ -162,7 +153,7 @@ export default function ModelsPage() {
                   />
                 ) : (
                   <Input className="font-mono" placeholder="gpt-4o-mini" required
-                         value={form.model_id} onChange={(e) => setForm({ ...form, model_id: e.target.value })} />
+                    value={form.model_id} onChange={(e) => setForm({ ...form, model_id: e.target.value })} />
                 )}
                 {availErr && <p className="text-[10.5px] text-destructive">⚠ {availErr}</p>}
               </div>
@@ -170,24 +161,24 @@ export default function ModelsPage() {
               <div className="sm:col-span-2 space-y-1.5">
                 <Label>{t("displayName")}</Label>
                 <Input placeholder="GPT-4o Mini" value={form.display_name}
-                       onChange={(e) => setForm({ ...form, display_name: e.target.value })} />
+                  onChange={(e) => setForm({ ...form, display_name: e.target.value })} />
               </div>
 
               <div className="space-y-1.5">
                 <Label>{t("contextWindow")}</Label>
                 <Input type="number" value={form.context_window}
-                       onChange={(e) => setForm({ ...form, context_window: Number(e.target.value) })} />
+                  onChange={(e) => setForm({ ...form, context_window: Number(e.target.value) })} />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label>{t("inputCost")}</Label>
                   <Input type="number" step="0.0001" value={form.input_cost_per_1k}
-                         onChange={(e) => setForm({ ...form, input_cost_per_1k: Number(e.target.value) })} />
+                    onChange={(e) => setForm({ ...form, input_cost_per_1k: Number(e.target.value) })} />
                 </div>
                 <div className="space-y-1.5">
                   <Label>{t("outputCost")}</Label>
                   <Input type="number" step="0.0001" value={form.output_cost_per_1k}
-                         onChange={(e) => setForm({ ...form, output_cost_per_1k: Number(e.target.value) })} />
+                    onChange={(e) => setForm({ ...form, output_cost_per_1k: Number(e.target.value) })} />
                 </div>
               </div>
 
@@ -228,7 +219,7 @@ export default function ModelsPage() {
           <table className="w-full text-[13px]">
             <thead>
               <tr className="bg-muted border-b border-border">
-                {[t("provider"), t("modelId"), t("displayName"), "in $/1k", "out $/1k", "Capabilities", ""].map((h, i) => (
+                {[t("provider"), t("modelId"), t("displayName"), t("costInCol"), t("costOutCol"), t("capabilities"), ""].map((h, i) => (
                   <th key={i} className={`${i === 3 || i === 4 ? "text-right" : "text-left"} px-3 py-2.5 text-[10.5px] font-semibold uppercase tracking-wider text-muted-foreground`}>{h}</th>
                 ))}
               </tr>
@@ -245,9 +236,9 @@ export default function ModelsPage() {
                     <td className="px-3 py-2.5 text-right font-mono">{m.output_cost_per_1k}</td>
                     <td className="px-3 py-2.5">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <Badge variant="outline" className="text-[11px]">text</Badge>
-                        {m.supports_vision && <Badge variant="success" className="text-[11px]"><Eye className="size-3 mr-1" />vision</Badge>}
-                        {m.supports_image_generation && <Badge variant="secondary" className="text-[11px]"><Image className="size-3 mr-1" />image gen</Badge>}
+                        <Badge variant="outline" className="text-[11px]">{t("text")}</Badge>
+                        {m.supports_vision && <Badge variant="success" className="text-[11px]"><Eye className="size-3 mr-1" />{t("vision")}</Badge>}
+                        {m.supports_image_generation && <Badge variant="secondary" className="text-[11px]"><Image className="size-3 mr-1" />{t("imageGen")}</Badge>}
                       </div>
                     </td>
                     <td className="px-3 py-2.5 text-right">
@@ -256,14 +247,14 @@ export default function ModelsPage() {
                           type="button"
                           onClick={() => startEdit(m)}
                           className="p-1.5 text-muted-foreground hover:text-primary rounded-md hover:bg-accent transition-colors cursor-pointer"
-                          title="Edit"
+                          title={t("edit")}
                         >
                           <Edit2 className="size-3.5" />
                         </button>
                         <button
                           type="button"
                           onClick={() => setDeleteTarget({ id: m.id, name: m.display_name || m.model_id })}
-                          className="p-1.5 text-muted-foreground hover:text-destructive rounded-md hover:bg-accent transition-colors cursor-pointer"
+                          className="p-1.5 text-destructive hover:bg-destructive/10 rounded-md transition-colors cursor-pointer"
                           title={t("confirmDelete")}
                         >
                           <Trash2 className="size-3.5" />
@@ -284,7 +275,7 @@ export default function ModelsPage() {
       <Dialog open={!!editingModel} onOpenChange={(open) => !open && setEditingModel(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit Model</DialogTitle>
+            <DialogTitle>{t("editModel")}</DialogTitle>
             <DialogDescription>
               {editingModel?.model_id}
             </DialogDescription>
@@ -293,25 +284,25 @@ export default function ModelsPage() {
             <div className="space-y-1.5">
               <Label>{t("displayName")}</Label>
               <Input placeholder="GPT-4o Mini" value={editForm.display_name}
-                     onChange={(e) => setEditForm({ ...editForm, display_name: e.target.value })} />
+                onChange={(e) => setEditForm({ ...editForm, display_name: e.target.value })} />
             </div>
 
             <div className="space-y-1.5">
               <Label>{t("contextWindow")}</Label>
               <Input type="number" value={editForm.context_window}
-                     onChange={(e) => setEditForm({ ...editForm, context_window: Number(e.target.value) })} />
+                onChange={(e) => setEditForm({ ...editForm, context_window: Number(e.target.value) })} />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>{t("inputCost")}</Label>
                 <Input type="number" step="0.0001" value={editForm.input_cost_per_1k}
-                       onChange={(e) => setEditForm({ ...editForm, input_cost_per_1k: Number(e.target.value) })} />
+                  onChange={(e) => setEditForm({ ...editForm, input_cost_per_1k: Number(e.target.value) })} />
               </div>
               <div className="space-y-1.5">
                 <Label>{t("outputCost")}</Label>
                 <Input type="number" step="0.0001" value={editForm.output_cost_per_1k}
-                       onChange={(e) => setEditForm({ ...editForm, output_cost_per_1k: Number(e.target.value) })} />
+                  onChange={(e) => setEditForm({ ...editForm, output_cost_per_1k: Number(e.target.value) })} />
               </div>
             </div>
 
@@ -346,7 +337,7 @@ export default function ModelsPage() {
               <Button variant="outline" type="button" onClick={() => setEditingModel(null)}>
                 {t("cancel")}
               </Button>
-              <Button type="submit">Save Changes</Button>
+              <Button type="submit">{t("saveChanges")}</Button>
             </DialogFooter>
           </form>
         </DialogContent>

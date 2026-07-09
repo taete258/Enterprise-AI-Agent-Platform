@@ -5,11 +5,7 @@ import { Link } from "@/i18n/routing";
 import { useTranslations } from "next-intl";
 import { agents } from "@/lib/api";
 import AppShell from "@/components/AppShell";
-import Topbar from "@/components/Topbar";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Topbar, Button, Input, Card, CardContent, Badge } from "@taete258/ds";
 import {
   Dialog,
   DialogContent,
@@ -17,7 +13,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
+} from "@taete258/ds";
 import { Plus, Bot, Trash2, Settings, MessageSquare } from "lucide-react";
 
 export default function AgentsPage() {
@@ -133,7 +129,7 @@ function AgentCard({ agent, onDelete }: { agent: any; onDelete: (id: number) => 
                   in: ${agent.input_cost_per_1k.toFixed(4)}/1k · out: ${agent.output_cost_per_1k.toFixed(4)}/1k
                 </>
               ) : (
-                <span className="text-muted-foreground/50">No cost info</span>
+                <span className="text-muted-foreground/50">{t("noCostInfo")}</span>
               )}
             </span>
           </div>

@@ -8,7 +8,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from "@taete258/ds";
 
 const LABELS: Record<string, string> = {
   th: "🇹🇭 ภาษาไทย",

@@ -4,14 +4,7 @@ import { useRouter } from "@/i18n/routing";
 import { useTranslations } from "next-intl";
 import { agents, llm, admin } from "@/lib/api";
 import AppShell from "@/components/AppShell";
-import Topbar from "@/components/Topbar";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent } from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Topbar, Button, Input, Label, Textarea, Card, CardContent, Alert, AlertDescription, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@taete258/ds";
 import { AlertCircle, Check, ArrowLeft, ArrowRight } from "lucide-react";
 
 export default function NewAgentPage() {
