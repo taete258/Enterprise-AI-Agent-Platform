@@ -184,7 +184,7 @@ export default function ToolsPage() {
             <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
               <Input
                 type="text"
-                placeholder="Search by name or description..."
+                placeholder={t("searchPlaceholder")}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="text-[13px]"
@@ -206,7 +206,7 @@ export default function ToolsPage() {
 
             <div className="flex gap-2">
               <Button type="submit" size="sm" className="text-[13px]" disabled={loading}>
-                {loading ? "..." : "Search"}
+                {loading ? "..." : t("searchButton")}
               </Button>
               <Button
                 type="button"
@@ -215,7 +215,7 @@ export default function ToolsPage() {
                 className="text-[13px]"
                 onClick={handleClearFilters}
               >
-                Clear
+                {t("clearButton")}
               </Button>
             </div>
           </form>
@@ -225,7 +225,7 @@ export default function ToolsPage() {
           <table className="w-full text-[13px]">
             <thead>
               <tr className="bg-muted border-b border-border">
-                {[t("name"), t("key"), t("description"), t("type"), "Capabilities", "Cost", ""].map((h, i) => (
+                {[t("name"), t("key"), t("description"), t("type"), t("capabilities"), t("cost"), ""].map((h, i) => (
                   <th key={i} className={`text-left px-4 py-4 text-[10.5px] font-semibold uppercase tracking-wider text-muted-foreground ${i === 0 ? "w-1/5" : i === 1 ? "w-1/6" : i === 2 ? "w-1/4" : ""}`}>{h}</th>
                 ))}
               </tr>
@@ -268,14 +268,14 @@ export default function ToolsPage() {
                   </td>
                   <td className="px-4 py-4 text-right">
                     <div className="flex items-center justify-end gap-1.5">
-                      <Button size="icon" variant="ghost" onClick={() => handleOpenTest(tool)} title="Test Tool" className="size-8 text-primary hover:text-primary-hover hover:bg-primary/10 cursor-pointer">
+                      <Button size="icon" variant="ghost" onClick={() => handleOpenTest(tool)} title={t("testTool")} className="size-8 text-primary hover:text-primary-hover hover:bg-primary/10 cursor-pointer">
                         <Play className="size-3.5 fill-current" />
                       </Button>
-                      <Button size="icon" variant="ghost" onClick={() => handleOpenEdit(tool)} title="Edit Tool" className="size-8 text-muted-foreground hover:text-foreground cursor-pointer">
+                      <Button size="icon" variant="ghost" onClick={() => handleOpenEdit(tool)} title={t("editTool")} className="size-8 text-muted-foreground hover:text-foreground cursor-pointer">
                         <Edit2 className="size-3.5" />
                       </Button>
                       {!tool.is_system && (
-                        <Button size="icon" variant="ghost" onClick={() => setDeleteTarget(tool)} title="Delete Tool" className="size-8 text-destructive hover:bg-destructive/10 cursor-pointer">
+                        <Button size="icon" variant="ghost" onClick={() => setDeleteTarget(tool)} title={t("deleteTool")} className="size-8 text-destructive hover:bg-destructive/10 cursor-pointer">
                           <Trash2 className="size-3.5" />
                         </Button>
                       )}
@@ -296,7 +296,11 @@ export default function ToolsPage() {
         {totalPages > 1 && (
           <div className="flex items-center justify-between">
             <div className="text-[13px] text-muted-foreground">
-              Showing {tools.length === 0 ? 0 : page * pageSize + 1}–{Math.min((page + 1) * pageSize, total)} of {total}
+              {t("showingOf", {
+                start: tools.length === 0 ? 0 : page * pageSize + 1,
+                end: Math.min((page + 1) * pageSize, total),
+                total: total
+              })}
             </div>
             <div className="flex gap-2 items-center">
               <Button
@@ -305,7 +309,7 @@ export default function ToolsPage() {
                 onClick={() => setPage(Math.max(0, page - 1))}
                 disabled={page === 0 || loading}
               >
-                Previous
+                {t("previous")}
               </Button>
               <div className="flex items-center gap-1 text-[12px]">
                 {page > 2 && (
@@ -358,7 +362,7 @@ export default function ToolsPage() {
                 onClick={() => setPage(Math.min(totalPages - 1, page + 1))}
                 disabled={page === totalPages - 1 || loading}
               >
-                Next
+                {t("next")}
               </Button>
             </div>
           </div>
@@ -493,7 +497,7 @@ export default function ToolsPage() {
             )}
 
             <DialogFooter className="pt-2">
-              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
+              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>{t("cancel")}</Button>
               <Button type="submit">{editingTool ? t("saveChanges") : t("createSkill")}</Button>
             </DialogFooter>
           </form>
@@ -510,7 +514,7 @@ export default function ToolsPage() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="mt-4">
-            <Button variant="outline" type="button" onClick={() => setDeleteTarget(null)}>Cancel</Button>
+            <Button variant="outline" type="button" onClick={() => setDeleteTarget(null)}>{t("cancel")}</Button>
             <Button variant="destructive" type="button" onClick={confirmDelete}>{t("confirmDelete") ?? "Confirm Delete"}</Button>
           </DialogFooter>
         </DialogContent>

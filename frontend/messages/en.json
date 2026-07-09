@@ -409,7 +409,19 @@
     "out": "Out:",
     "modelCapabilities": "Model Capabilities",
     "costInputMillion": "Cost per 1M Input Tokens ($)",
-    "costOutputMillion": "Cost per 1M Output Tokens ($)"
+    "costOutputMillion": "Cost per 1M Output Tokens ($)",
+    "searchPlaceholder": "Search by name or description...",
+    "searchButton": "Search",
+    "clearButton": "Clear",
+    "capabilities": "Capabilities",
+    "cost": "Cost",
+    "testTool": "Test Tool",
+    "editTool": "Edit Tool",
+    "deleteTool": "Delete Tool",
+    "showingOf": "Showing {start}–{end} of {total}",
+    "previous": "Previous",
+    "next": "Next",
+    "cancel": "Cancel"
   },
   "UsersPage": {
     "title": "Users",
