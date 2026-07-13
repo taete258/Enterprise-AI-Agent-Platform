@@ -178,6 +178,7 @@
     "tokensIn": "Tokens in",
     "tokensOut": "Tokens out",
     "enabledSkills": "Enabled Skills",
+    "showToolOutput": "แสดงผลลัพธ์จากเครื่องมือ (Tool Output)",
     "noTools": "No tools registered.",
     "noDescription": "ไม่มีคำอธิบาย",
     "attachFile": "แนบไฟล์",

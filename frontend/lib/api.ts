@@ -183,7 +183,10 @@ export const admin = {
     api(`/api/admin/users/${userId}/roles?role_id=${roleId}`, { method: "POST" }),
   removeRole: (userId: number, roleId: number) =>
     api(`/api/admin/users/${userId}/roles/${roleId}`, { method: "DELETE" }),
-  listTools: () => api<any[]>("/api/admin/tools"),
+  listTools: (params?: Record<string, string>) => {
+    const qs = params ? "?" + new URLSearchParams(params).toString() : "";
+    return api<any>(`/api/admin/tools${qs}`);
+  },
   createTool: (data: any) => api("/api/admin/tools", { method: "POST", body: JSON.stringify(data) }),
   updateTool: (id: number, data: any) => api(`/api/admin/tools/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   deleteTool: (id: number) => api(`/api/admin/tools/${id}`, { method: "DELETE" }),

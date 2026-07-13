@@ -178,6 +178,7 @@
     "tokensIn": "Tokens in",
     "tokensOut": "Tokens out",
     "enabledSkills": "Enabled Skills",
+    "showToolOutput": "Show Tool Output",
     "noTools": "No tools registered.",
     "noDescription": "No description",
     "attachFile": "Attach file",

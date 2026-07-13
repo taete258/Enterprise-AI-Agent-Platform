@@ -7,7 +7,7 @@ import { agents, sessions, llm, auth, admin } from "@/lib/api";
 import { API_URL } from "@/lib/api";
 import AppShell from "@/components/AppShell";
 import { Topbar, Card, Badge, Button, Separator, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@taete258/ds";
-import { Send, Settings, BookOpen, ChevronRight, Paperclip, X, FileText, ChevronLeft, Pin, Edit2, Trash2, MoreVertical, Link2Off, Loader2, ArrowDown, Plus } from "lucide-react";
+import { Send, Settings, BookOpen, ChevronRight, Paperclip, X, FileText, ChevronLeft, Pin, Edit2, Trash2, MoreVertical, Link2Off, Loader2, ArrowDown, Plus, Copy, Check } from "lucide-react";
 
 type Attachment = { name: string; size?: number; mime?: string; localUrl?: string };
 
@@ -253,6 +253,17 @@ export default function ChatPage() {
   const [agentTools, setAgentTools] = useState<any[]>([]);
   const [rightPanelOpen, setRightPanelOpen] = useState(true);
   const [leftPanelOpen, setLeftPanelOpen] = useState(true);
+  const [showToolOutput, setShowToolOutput] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("showToolOutput");
+      return saved !== null ? saved === "true" : true;
+    }
+    return true;
+  });
+
+  useEffect(() => {
+    localStorage.setItem("showToolOutput", String(showToolOutput));
+  }, [showToolOutput]);
 
   const [groups, setGroups] = useState<any[]>([]);
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
@@ -775,6 +786,8 @@ export default function ChatPage() {
             agentTools={agentTools}
             toggleTool={toggleTool}
             handleImageModelChange={handleImageModelChange}
+            showToolOutput={showToolOutput}
+            setShowToolOutput={setShowToolOutput}
           />
         ) : undefined
       }
@@ -1057,15 +1070,18 @@ export default function ChatPage() {
                       </div>
                     )}
 
-                    {msgs.map((m, i) => (
-                      <div
-                        key={m.id ?? i}
-                        data-msg-id={i === 0 && m.id ? m.id : undefined}
-                        className={`py-6 ${i === 0 ? "pt-0" : ""} ${i === msgs.length - 1 && !busy ? "pb-0" : ""}`}
-                      >
-                        <Bubble msg={m} msgs={msgs} msgIndex={i} />
-                      </div>
-                    ))}
+                    {msgs.map((m, i) => {
+                      if (m.role === "tool" && !showToolOutput) return null;
+                      return (
+                        <div
+                          key={m.id ?? i}
+                          data-msg-id={i === 0 && m.id ? m.id : undefined}
+                          className={`py-6 ${i === 0 ? "pt-0" : ""} ${i === msgs.length - 1 && !busy ? "pb-0" : ""}`}
+                        >
+                          <Bubble msg={m} msgs={msgs} msgIndex={i} />
+                        </div>
+                      );
+                    })}
                     {busy && (
                       <div className="py-6 pb-0">
                         <TypingBubble />
@@ -1393,6 +1409,43 @@ function Welcome({ name }: { name?: string }) {
   );
 }
 
+function ToolOutputCodeBlock({ content }: { content: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(content);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="rounded-lg border border-border bg-card overflow-hidden shadow-sm mt-1.5 max-w-full">
+      <div className="flex items-center justify-between px-3 py-1.5 bg-muted/50 border-b border-border text-[11px] font-mono text-muted-foreground select-none">
+        <span>JSON</span>
+        <button
+          onClick={handleCopy}
+          className="flex items-center gap-1 hover:text-foreground transition-colors cursor-pointer"
+        >
+          {copied ? (
+            <>
+              <Check className="size-3 text-green-600 dark:text-green-400" />
+              <span>Copied!</span>
+            </>
+          ) : (
+            <>
+              <Copy className="size-3" />
+              <span>Copy</span>
+            </>
+          )}
+        </button>
+      </div>
+      <pre className="p-3 text-[11.5px] font-mono overflow-auto max-h-80 whitespace-pre-wrap bg-zinc-950 text-zinc-50 dark:bg-zinc-900 border-0 rounded-none m-0">
+        <code>{content}</code>
+      </pre>
+    </div>
+  );
+}
+
 function Bubble({ msg, msgs = [], msgIndex = -1 }: { msg: Msg; msgs?: Msg[]; msgIndex?: number }) {
   const t = useTranslations("ChatPage");
   const isUser = msg.role === "user";
@@ -1415,21 +1468,29 @@ function Bubble({ msg, msgs = [], msgIndex = -1 }: { msg: Msg; msgs?: Msg[]; msg
   };
 
   if (isTool) {
+    const formattedContent = (() => {
+      if (typeof msg.content === "object" && msg.content !== null) {
+        return JSON.stringify(msg.content, null, 2);
+      }
+      try {
+        const parsed = JSON.parse(msg.content);
+        return JSON.stringify(parsed, null, 2);
+      } catch {
+        return JSON.stringify(msg.content, null, 2);
+      }
+    })();
+
     return (
-      <div className="flex gap-4 items-center pl-11 py-1">
-        <div className="w-5 h-5 rounded bg-muted border border-border flex items-center justify-center text-[10px] text-muted-foreground shrink-0 font-mono">
+      <div className="flex gap-4 pl-11 py-1">
+        <div className="w-5 h-5 rounded bg-muted border border-border flex items-center justify-center text-[10px] text-muted-foreground shrink-0 font-mono mt-1">
           T
         </div>
-        <details className="flex-1 min-w-0 group" open>
-          <summary className="text-[11.5px] font-medium text-muted-foreground cursor-pointer hover:underline select-none">
+        <div className="flex-1 min-w-0">
+          <div className="text-[11.5px] font-medium text-muted-foreground select-none">
             {t("toolOutput")} (ID: {msg.tool_call_id?.slice(0, 8) || "call"})
-          </summary>
-          <div className="mt-1.5">
-            <pre className="p-3 rounded-md bg-muted border border-border text-[11px] font-mono text-muted-foreground overflow-auto max-h-40 whitespace-pre-wrap">
-              {msg.content}
-            </pre>
           </div>
-        </details>
+          <ToolOutputCodeBlock content={formattedContent} />
+        </div>
       </div>
     );
   }
@@ -1600,13 +1661,15 @@ function TypingBubble() {
 
 function Inspector({
   agent, totalIn, totalOut, msgCount, models, canEdit, modelBusy, handleModelChange, modelErr,
-  allTools, agentTools, toggleTool, handleImageModelChange
+  allTools, agentTools, toggleTool, handleImageModelChange, showToolOutput, setShowToolOutput
 }: {
   agent: any; totalIn: number; totalOut: number; msgCount: number;
   models: any[]; canEdit: boolean; modelBusy: boolean; handleModelChange: (val: string) => void;
   modelErr: string;
   allTools: any[]; agentTools: any[]; toggleTool: (key: string, enabled: boolean) => Promise<void>;
   handleImageModelChange?: (val: string) => void;
+  showToolOutput: boolean;
+  setShowToolOutput: (val: boolean) => void;
 }) {
   const t = useTranslations("ChatPage");
   if (!agent) return <div className="p-5 text-[11px] text-muted-foreground">{t("loading")}</div>;
@@ -1673,6 +1736,15 @@ function Inspector({
 
 
           <Row k="Visibility" v={agent.is_published ? "published" : "private"} />
+          <div className="flex items-center justify-between text-[12px] min-h-[28px] border-t border-border/40 pt-2 mt-2">
+            <span className="text-muted-foreground">{t("showToolOutput")}</span>
+            <input
+              type="checkbox"
+              checked={showToolOutput}
+              onChange={(e) => setShowToolOutput(e.target.checked)}
+              className="w-3.5 h-3.5 accent-primary cursor-pointer"
+            />
+          </div>
         </div>
 
         <Separator />
