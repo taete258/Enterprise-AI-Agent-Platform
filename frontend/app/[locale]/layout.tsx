@@ -3,7 +3,7 @@ import { NextIntlClientProvider } from "next-intl";
 import { getMessages, setRequestLocale } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { routing } from "@/i18n/routing";
-import { ThemeProvider } from "@taete258/ds";
+import { ThemeProvider } from "@/components/ClientThemeProvider";
 import AutofillDisabler from "../../components/AutofillDisabler";
 
 export function generateStaticParams() {
