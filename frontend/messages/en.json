@@ -45,7 +45,9 @@
     "logout": "Logout",
     "confirmLogout": "Confirm Sign Out",
     "confirmLogoutMessage": "Are you sure you want to sign out? You will need to log in again to access your agents.",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "settings": "Settings",
+    "generalSetting": "General Setting"
   },
   "AgentsPage": {
     "title": "Your agents",
@@ -493,5 +495,30 @@
     "resourceKnowledge": "Knowledge",
     "resourceUser": "Users",
     "resourceAdmin": "Admin"
+  },
+  "SettingsPage": {
+    "settingsTitle": "Settings",
+    "submenuTheme": "Appearance & Theme",
+    "submenuProfile": "Profile Settings",
+    "submenuNotifications": "Notifications",
+    "themePageTitle": "Appearance",
+    "themePageSubtitle": "Customize the visual appearance, layout, and color palette of your AI agent dashboard.",
+    "colorThemeSection": "Color Theme",
+    "colorThemeDesc": "Select a color theme palette to style the interface.",
+    "modeSection": "Appearance Mode",
+    "modeDesc": "Switch between light and dark modes or sync with your system theme.",
+    "modeLight": "Light",
+    "modeDark": "Dark",
+    "modeSystem": "System",
+    "themeForest": "Forest Green",
+    "themeOcean": "Ocean Blue",
+    "themeTerracotta": "Terracotta Sand",
+    "themeSlate": "Slate Monochrome",
+    "themePurple": "Royal Purple",
+    "previewTitle": "Theme Preview",
+    "previewDesc": "Here is a quick look of how buttons, cards, and sidebar elements render with this theme.",
+    "previewButton": "Primary Action",
+    "previewBadge": "Success Status",
+    "previewLabel": "Interactive Agent Card"
   }
 }

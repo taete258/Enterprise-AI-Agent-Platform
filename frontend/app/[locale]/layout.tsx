@@ -48,6 +48,9 @@ export default async function LocaleLayout({
                   document.documentElement.classList.remove('dark');
                   document.documentElement.style.colorScheme = 'light';
                 }
+                const savedColor = localStorage.getItem('theme-color') || 'forest';
+                document.documentElement.classList.remove('theme-forest', 'theme-ocean', 'theme-terracotta', 'theme-slate', 'theme-purple');
+                document.documentElement.classList.add('theme-' + savedColor);
               } catch (e) {}
             })()`
           }}

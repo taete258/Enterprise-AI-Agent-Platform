@@ -45,7 +45,9 @@
     "logout": "ออกจากระบบ",
     "confirmLogout": "ยืนยันการออกจากระบบ",
     "confirmLogoutMessage": "คุณแน่ใจหรือว่าต้องการออกจากระบบ? คุณจะต้องลงชื่อเข้าใช้อีกครั้งเพื่อเข้าถึง Agent ของคุณ",
-    "cancel": "ยกเลิก"
+    "cancel": "ยกเลิก",
+    "settings": "การตั้งค่า",
+    "generalSetting": "การตั้งค่าทั่วไป"
   },
   "AgentsPage": {
     "title": "เอเจนต์ของคุณ",
@@ -493,5 +495,30 @@
     "resourceKnowledge": "Knowledge",
     "resourceUser": "Users",
     "resourceAdmin": "Admin"
+  },
+  "SettingsPage": {
+    "settingsTitle": "การตั้งค่า",
+    "submenuTheme": "ธีมและการแสดงผล",
+    "submenuProfile": "การตั้งค่าโปรไฟล์",
+    "submenuNotifications": "การแจ้งเตือน",
+    "themePageTitle": "การแสดงผล",
+    "themePageSubtitle": "ปรับแต่งธีมสี โหมดแสดงผล และหน้าตาของระบบ AI agent dashboard",
+    "colorThemeSection": "ธีมสี",
+    "colorThemeDesc": "เลือกจานสีที่คุณต้องการใช้งานในระบบ",
+    "modeSection": "โหมดการแสดงผล",
+    "modeDesc": "สลับการใช้งานโหมดสว่าง โหมดมืด หรืออิงตามระบบอุปกรณ์ของคุณ",
+    "modeLight": "สว่าง (Light)",
+    "modeDark": "มืด (Dark)",
+    "modeSystem": "ตามระบบ (System)",
+    "themeForest": "เขียวฟอเรสต์",
+    "themeOcean": "น้ำเงินโอเชียน",
+    "themeTerracotta": "ส้มเทอราคอตตา",
+    "themeSlate": "เทาสเลท",
+    "themePurple": "ม่วงรอยัล",
+    "previewTitle": "ตัวอย่างธีม",
+    "previewDesc": "นี่คือหน้าตาตัวอย่างของปุ่ม การ์ด และองค์ประกอบต่างๆ เมื่อใช้ธีมนี้",
+    "previewButton": "ปุ่มหลัก",
+    "previewBadge": "สถานะสำเร็จ",
+    "previewLabel": "การ์ดเอเจนท์ตัวอย่าง"
   }
 }

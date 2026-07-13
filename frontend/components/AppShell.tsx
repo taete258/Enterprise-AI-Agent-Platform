@@ -3,7 +3,7 @@ import { usePathname, useRouter, Link } from "@/i18n/routing";
 import { useEffect, useState, useCallback } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import {
-  Bot, MessagesSquare, BookOpen, Cpu, Plug, Users, BarChart3, ScrollText, LogOut, Wrench, Shield,
+  Bot, MessagesSquare, BookOpen, Cpu, Plug, Users, BarChart3, ScrollText, LogOut, Wrench, Shield, Settings,
 } from "lucide-react";
 import { Logo, ThemeToggle, Avatar, AvatarFallback, Separator } from "@taete258/ds";
 import LocaleSwitcher from "./LocaleSwitcher";
@@ -67,6 +67,12 @@ export default function AppShell({ children, rightPanel }: {
         { href: "/admin/roles",     label: t("roles"),     icon: Shield },
         { href: "/admin/dashboard", label: t("usage"),     icon: BarChart3 },
         { href: "/admin/audit",     label: t("auditLog"),  icon: ScrollText },
+      ],
+    },
+    {
+      section: t("settings") || "Settings",
+      items: [
+        { href: "/settings/theme", label: t("generalSetting") || "General Setting", icon: Settings },
       ],
     },
   ];
