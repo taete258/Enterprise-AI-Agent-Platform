@@ -1176,7 +1176,7 @@ export default function ChatPage() {
                       </>
                     )}
                   </div>
-                  <span className="font-mono">↑ {totalIn} · ↓ {totalOut}</span>
+                  <span className="font-mono">↑ {formatTokenK(totalIn)} · ↓ {formatTokenK(totalOut)}</span>
                 </div>
               </div>
             </div>
@@ -1552,7 +1552,7 @@ function Bubble({ msg, msgs = [], msgIndex = -1 }: { msg: Msg; msgs?: Msg[]; msg
               <span>·</span>
             )}
             {(msg.tokens_in || msg.tokens_out) && (
-              <span>{t("tokensInfo", { in: msg.tokens_in || 0, out: msg.tokens_out || 0 })}</span>
+              <span>{t("tokensInfo", { in: formatTokenK(msg.tokens_in || 0), out: formatTokenK(msg.tokens_out || 0) })}</span>
             )}
           </div>
         )}
@@ -1825,8 +1825,8 @@ function Inspector({
         <div className="space-y-2.5">
           <div className="section-h">{t("sessionStats")}</div>
           <Row k={t("messages")} v={String(msgCount)} />
-          <Row k={t("tokensIn")} v={totalIn.toLocaleString()} />
-          <Row k={t("tokensOut")} v={totalOut.toLocaleString()} />
+          <Row k={t("tokensIn")} v={formatTokenK(totalIn)} />
+          <Row k={t("tokensOut")} v={formatTokenK(totalOut)} />
         </div>
       </div>
     </div>
@@ -1840,4 +1840,17 @@ function Row({ k, v }: { k: string; v: string }) {
       <span className="font-mono text-foreground">{v}</span>
     </div>
   );
+}
+
+function formatTokenK(num: number): string {
+  if (num === 0) return "0k";
+  const val = num / 1000;
+  let formatted = val.toFixed(2);
+  if (formatted.endsWith("0")) {
+    formatted = formatted.slice(0, -1);
+  }
+  if (formatted.endsWith(".0")) {
+    formatted = formatted.slice(0, -2);
+  }
+  return formatted + "k";
 }
