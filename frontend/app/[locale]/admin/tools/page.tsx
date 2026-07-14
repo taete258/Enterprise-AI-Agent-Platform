@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
 import { admin } from "@/lib/api";
-import { PageHeader, Button, Input, Label, Card, CardContent, Badge, Alert, AlertDescription, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@taete258/ds";
+import { PageHeader, Button, Input, Label, Card, CardContent, Badge, Alert, AlertDescription, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@taete258/ds";
 import { AlertCircle, Trash2, Edit2, Play, Plus, BookOpen, Settings } from "lucide-react";
 import { useTranslations } from "next-intl";
 
@@ -190,18 +190,22 @@ export default function ToolsPage() {
                 className="text-[13px]"
               />
 
-              <select
-                value={typeFilter}
-                onChange={(e) => {
-                  setTypeFilter(e.target.value);
+              <Select
+                value={typeFilter || "__all__"}
+                onValueChange={(v) => {
+                  setTypeFilter(v === "__all__" ? "" : v);
                   setPage(0);
                 }}
-                className="text-[13px] px-3 py-2 rounded-md border border-input bg-background h-9"
               >
-                <option value="">{t("allTypes")}</option>
-                <option value="api">{t("api")}</option>
-                <option value="system">{t("system")}</option>
-              </select>
+                <SelectTrigger className="h-9 text-[13px] w-full">
+                  <SelectValue placeholder={t("allTypes")} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">{t("allTypes")}</SelectItem>
+                  <SelectItem value="api">{t("api")}</SelectItem>
+                  <SelectItem value="system">{t("system")}</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="flex gap-2">
@@ -397,13 +401,20 @@ export default function ToolsPage() {
                           onChange={(e) => setForm({ ...form, description: e.target.value })} />
               </div>
               <div className="space-y-1.5 col-span-2 sm:col-span-1">
-                <Label htmlFor="tool-type">{t("type")}</Label>
-                <select id="tool-type" disabled={!!editingTool && editingTool.is_system}
-                        className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-[13px] text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                        value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value, url: e.target.value === "system" ? "" : form.url })}>
-                  <option value="api">{t("apiOption")}</option>
-                  <option value="system">{t("systemOption")}</option>
-                </select>
+                <Label>{t("type")}</Label>
+                <Select
+                  disabled={!!editingTool && editingTool.is_system}
+                  value={form.type}
+                  onValueChange={(v) => setForm({ ...form, type: v, url: v === "system" ? "" : form.url })}
+                >
+                  <SelectTrigger className="h-9 text-[13px] w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="api">{t("apiOption")}</SelectItem>
+                    <SelectItem value="system">{t("systemOption")}</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-1.5 col-span-2">
@@ -459,11 +470,20 @@ export default function ToolsPage() {
               {form.type === "api" && (
                 <>
                   <div className="space-y-1.5 col-span-2 sm:col-span-1">
-                    <Label htmlFor="tool-method">{t("httpMethod")}</Label>
-                    <select id="tool-method" className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-[13px] text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                            value={form.method} onChange={(e) => setForm({ ...form, method: e.target.value })}>
-                      {["GET","POST","PUT","PATCH","DELETE"].map((m) => <option key={m} value={m}>{m}</option>)}
-                    </select>
+                    <Label>{t("httpMethod")}</Label>
+                    <Select
+                      value={form.method}
+                      onValueChange={(v) => setForm({ ...form, method: v })}
+                    >
+                      <SelectTrigger className="h-9 text-[13px] w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {["GET","POST","PUT","PATCH","DELETE"].map((m) => (
+                          <SelectItem key={m} value={m}>{m}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-1.5 col-span-2">
                     <Label htmlFor="tool-url">{t("endpointUrl")}</Label>
